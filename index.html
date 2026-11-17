@@ -77,6 +77,15 @@ body {
 .media-fit-cover {
   object-fit: cover;
 }
+/* 뷰어 컨테이너 터치 제스처 제어 (당겨서 새로고침 방지) */
+#viewer-container {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+#viewer-image, #viewer-video {
+  transform-origin: center center;
+  will-change: transform;
+}
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen h-[100dvh] flex flex-col overflow-hidden">
@@ -164,13 +173,17 @@ body {
 </main>
 
 <!-- 3. FULLSCREEN MEDIA VIEWER MODAL -->
-<div id="viewer-modal" class="fixed inset-0 bg-black z-50 hidden flex flex-col items-center justify-center select-none">
-  <div id="viewer-header" class="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-20 flex justify-between items-center transition-opacity duration-300">
+<div id="viewer-modal" class="fixed inset-0 bg-black z-50 hidden flex flex-col items-center justify-center select-none transition-colors duration-200">
+  <div id="viewer-header" class="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-20 flex justify-between items-center transition-opacity duration-200">
     <div class="text-white">
       <span id="viewer-category-tag" class="text-xs bg-brand text-white px-2.5 py-1 rounded-full font-bold">카테고리</span>
       <h3 id="viewer-title" class="text-base font-medium mt-1 truncate max-w-md">파일명</h3>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- 확대 배율 표시 및 초기화 버튼 (확대 시 활성화) -->
+      <button id="zoom-reset-btn" onclick="resetMediaZoom(true)" title="배율 초기화" class="hidden px-3 h-10 rounded-full bg-brand text-white text-xs font-bold items-center justify-center shadow backdrop-blur-md transition">
+        100%
+      </button>
       <button onclick="toggleMediaFit()" title="화면 맞춤 전환" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition">
         <i id="fit-icon" class="fa-solid fa-expand"></i>
       </button>
@@ -185,14 +198,14 @@ body {
     <video id="viewer-video" controls class="w-full h-full media-fit-contain hidden" playsinline></video>
   </div>
 
-  <button onclick="prevMedia()" class="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
+  <button id="viewer-prev-btn" onclick="prevMedia()" class="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
     <i class="fa-solid fa-chevron-left text-2xl"></i>
   </button>
-  <button onclick="nextMedia()" class="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
+  <button id="viewer-next-btn" onclick="nextMedia()" class="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
     <i class="fa-solid fa-chevron-right text-2xl"></i>
   </button>
 
-  <div id="viewer-footer" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-semibold z-20">
+  <div id="viewer-footer" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-semibold z-20 transition-opacity duration-200">
     <span id="viewer-index">1</span> / <span id="viewer-total">1</span>
   </div>
 </div>
@@ -322,11 +335,10 @@ body {
 <!-- JAVASCRIPT LOGIC -->
 <script>
 // ============================================================================
-// [실시간 동기화 설정] Firebase Realtime Database URL을 아래에 입력하면 모든 기기가 자동 연결됩니다.
-// (코드 수정 없이 웹앱 내 '관리자 > 동기화 서버 설정' 버튼에서도 입력 가능합니다.)
+// [실시간 동기화 설정] Firebase Realtime Database URL
 // ============================================================================
 const FIREBASE_CONFIG = {
-  databaseURL: "https://jtech-m-default-rtdb.firebaseio.com" // 예: "https://jtech-catalog-default-rtdb.firebaseio.com"
+  databaseURL: "YOUR_FIREBASE_DATABASE_URL" // 예: "https://jtech-catalog-default-rtdb.firebaseio.com"
 };
 
 const SYNC_URL_STORAGE_KEY = "jtech_firebase_db_url";
@@ -363,7 +375,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// 관리자 비밀번호 관리 (초기 비밀번호: 1234, 실시간 DB 연결 시 전 기기 동기화)
+// 관리자 비밀번호 관리 (초기 비밀번호: 1234)
 const ADMIN_PW_KEY = "jtech_admin_password";
 let cachedAdminPassword = localStorage.getItem(ADMIN_PW_KEY) || "1234";
 
@@ -418,7 +430,7 @@ async function changeAdminPasswordPrompt() {
     alert("현재 비밀번호가 일치하지 않습니다.");
     return;
   }
-  const newPw = prompt("새 비밀번호를 입력하세요:");
+  const newPw = prompt("새 비밀번호를 입력하세요 (4자 이상 권장):");
   if (newPw && newPw.trim().length > 0) {
     await setAdminPassword(newPw.trim());
     alert("비밀번호가 변경되었습니다.");
@@ -446,7 +458,6 @@ function configureSyncUrlPrompt() {
   }
 }
 
-// 실시간 동기화 및 네트워크 상태 배지 업데이트
 function updateSyncStatusUI(state) {
   const badge = document.getElementById("sync-status-badge");
   const dot = document.getElementById("sync-status-dot");
@@ -580,7 +591,6 @@ function saveLocalCategoriesToDB(catArray) {
   });
 }
 
-// 카테고리를 로컬 IndexedDB와 실시간 서버(연결 시)에 동시 저장
 async function persistCategories() {
   updateSyncStatusUI("saving");
   await saveLocalCategoriesToDB(categories);
@@ -620,7 +630,6 @@ function deleteMediaItemFromDB(id) {
   });
 }
 
-// 기기별로 달랐던 기존 카테고리 ID를 서버 표준 카테고리 ID로 이름 기준 자동 매칭
 async function migrateMediaCategoryIds(localCats, serverCats, allMedia) {
   if (!localCats || localCats.length === 0 || !allMedia || allMedia.length === 0) return allMedia;
 
@@ -629,7 +638,6 @@ async function migrateMediaCategoryIds(localCats, serverCats, allMedia) {
     oldIdToName[c.id] = c.name;
   });
 
-  // 기존 기본 카테고리 인덱스 기반 추론 보조
   DEFAULT_CATEGORIES.forEach((name, idx) => {
     oldIdToName["default_idx_" + idx] = name;
   });
@@ -660,7 +668,6 @@ async function migrateMediaCategoryIds(localCats, serverCats, allMedia) {
   return allMedia;
 }
 
-// 카테고리 배열과 로컬 미디어를 결합하여 화면 갱신
 async function applyCategoriesAndRender(newCategories, previousLocalCats) {
   categories = newCategories.map((c, idx) => ({
     id: c.id,
@@ -707,7 +714,6 @@ async function loadDataFromDB() {
   const localCats = await getLocalCategoriesFromDB();
   const dbUrl = getEffectiveDatabaseUrl();
 
-  // 1. 먼저 로컬 데이터를 즉시 렌더링하여 초기 화면 지연 방지
   let initialCats = localCats;
   if (!initialCats || initialCats.length === 0) {
     initialCats = DEFAULT_CATEGORIES.map((name, index) => ({
@@ -718,7 +724,6 @@ async function loadDataFromDB() {
   }
   await applyCategoriesAndRender(initialCats, []);
 
-  // 2. Firebase 실시간 DB 주소가 설정되어 있으면 실시간 리스너 연결
   if (dbUrl && typeof firebase !== "undefined") {
     try {
       if (!firebase.apps.length) {
@@ -728,13 +733,11 @@ async function loadDataFromDB() {
       categoriesRef = rtdb.ref("jtech_categories");
       adminPwRef = rtdb.ref("jtech_config/adminPassword");
 
-      // WebSocket 실시간 연결 상태 감지
       rtdb.ref(".info/connected").on("value", (snap) => {
         isRealtimeConnected = (snap.val() === true);
         updateSyncStatusUI("idle");
       });
 
-      // 관리자 비밀번호 실시간 동기화 리스너
       adminPwRef.on("value", (snap) => {
         const serverPw = snap.val();
         if (serverPw) {
@@ -743,13 +746,11 @@ async function loadDataFromDB() {
         }
       });
 
-      // 카테고리 목록 실시간 동기화 리스너
       categoriesRef.on("value", async (snapshot) => {
         const prevLocalCats = await getLocalCategoriesFromDB();
         const serverData = snapshot.val();
 
         if (!serverData) {
-          // 서버가 비어있으면 현재 로컬(또는 초기) 카테고리를 표준 ID로 변환해 서버에 최초 등록
           const seedCats = (prevLocalCats && prevLocalCats.length > 0 ? prevLocalCats : initialCats).map((c, idx) => ({
             id: c.id.startsWith("cat_fixed_") ? c.id : "cat_fixed_" + idx,
             name: c.name,
@@ -893,6 +894,104 @@ function goHome() {
   renderCategoryGrid();
 }
 
+// ============================================================================
+// [전체화면 미디어 뷰어: 핀치 줌 + 더블탭 줌 + 드래그 애니메이션 닫기]
+// ============================================================================
+let zoomScale = 1;
+let panX = 0;
+let panY = 0;
+let startPanX = 0;
+let startPanY = 0;
+let initialPinchDistance = null;
+let initialZoomScale = 1;
+let gestureMode = null; // 'pinch' | 'pan' | 'decide' | 'drag-close' | 'swipe-horizontal'
+let touchStartX = 0;
+let touchStartY = 0;
+let touchCurrentX = 0;
+let touchCurrentY = 0;
+let lastTapTime = 0;
+let lastTapX = 0;
+let lastTapY = 0;
+
+function getActiveMediaElement() {
+  const imgEl = document.getElementById("viewer-image");
+  const videoEl = document.getElementById("viewer-video");
+  return !imgEl.classList.contains("hidden") ? imgEl : videoEl;
+}
+
+function setViewerOverlayOpacity(opacity) {
+  const header = document.getElementById("viewer-header");
+  const footer = document.getElementById("viewer-footer");
+  const prevBtn = document.getElementById("viewer-prev-btn");
+  const nextBtn = document.getElementById("viewer-next-btn");
+  [header, footer, prevBtn, nextBtn].forEach(el => {
+    if (el) el.style.opacity = String(opacity);
+  });
+}
+
+function updateZoomUI() {
+  const resetBtn = document.getElementById("zoom-reset-btn");
+  if (!resetBtn) return;
+  if (zoomScale > 1.02) {
+    resetBtn.classList.remove("hidden");
+    resetBtn.classList.add("flex");
+    resetBtn.innerText = Math.round(zoomScale * 100) + "%";
+  } else {
+    resetBtn.classList.add("hidden");
+    resetBtn.classList.remove("flex");
+  }
+}
+
+function applyMediaTransform(withTransition = false) {
+  const activeEl = getActiveMediaElement();
+  if (!activeEl) return;
+  activeEl.style.transition = withTransition ? "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)" : "none";
+  activeEl.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoomScale})`;
+  updateZoomUI();
+}
+
+function resetMediaZoom(withTransition = false) {
+  zoomScale = 1;
+  panX = 0;
+  panY = 0;
+  initialPinchDistance = null;
+  gestureMode = null;
+
+  const modal = document.getElementById("viewer-modal");
+  const imgEl = document.getElementById("viewer-image");
+  const videoEl = document.getElementById("viewer-video");
+
+  if (modal) modal.style.backgroundColor = "rgba(0, 0, 0, 1)";
+  setViewerOverlayOpacity(1);
+
+  [imgEl, videoEl].forEach(el => {
+    if (el) {
+      el.style.transition = withTransition ? "transform 0.25s ease-out" : "none";
+      el.style.transform = "translate3d(0px, 0px, 0) scale(1)";
+    }
+  });
+  updateZoomUI();
+}
+
+function clampPanBounds() {
+  const container = document.getElementById("viewer-container");
+  if (!container || zoomScale <= 1) {
+    panX = 0;
+    panY = 0;
+    return;
+  }
+  const maxPanX = (container.clientWidth * (zoomScale - 1)) / 2;
+  const maxPanY = (container.clientHeight * (zoomScale - 1)) / 2;
+  panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+  panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+}
+
+function getTouchDistance(t1, t2) {
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.hypot(dx, dy);
+}
+
 function openViewer(index) {
   if (!currentCategoryId) return;
   currentMediaList = sortMediaArray(mediaStorage[currentCategoryId] || []);
@@ -902,10 +1001,13 @@ function openViewer(index) {
   const modal = document.getElementById("viewer-modal");
   modal.classList.remove("hidden");
 
+  resetMediaZoom(false);
   updateViewerContent();
 }
 
 function updateViewerContent() {
+  resetMediaZoom(false);
+
   const item = currentMediaList[currentViewerIndex];
   const category = categories.find(c => c.id === currentCategoryId);
 
@@ -936,6 +1038,7 @@ function updateViewerContent() {
 function closeViewer() {
   const videoEl = document.getElementById("viewer-video");
   videoEl.pause();
+  resetMediaZoom(false);
   document.getElementById("viewer-modal").classList.add("hidden");
 }
 
@@ -962,23 +1065,189 @@ function toggleMediaFit() {
   updateViewerContent();
 }
 
-let touchStartX = 0;
-let touchEndX = 0;
 const viewerContainer = document.getElementById("viewer-container");
 
 viewerContainer.addEventListener("touchstart", (e) => {
-  touchStartX = e.changedTouches[0].screenX;
-}, false);
+  // 두 손가락 터치 시 핀치 줌 모드 진입
+  if (e.touches.length === 2) {
+    gestureMode = "pinch";
+    initialPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
+    initialZoomScale = zoomScale;
+    return;
+  }
+
+  if (e.touches.length === 1) {
+    const touch = e.touches[0];
+    const now = Date.now();
+
+    // 동영상 하단 컨트롤 바 영역(하단 80px) 터치 시 기본 조작 허용
+    const videoEl = document.getElementById("viewer-video");
+    if (!videoEl.classList.contains("hidden") && touch.clientY > window.innerHeight - 80) {
+      gestureMode = null;
+      return;
+    }
+
+    // 더블탭 감지 (300ms 이내, 거리 35px 이내) -> 1배 / 2.5배 전환
+    if (now - lastTapTime < 300 && Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY) < 35) {
+      e.preventDefault();
+      if (zoomScale > 1.05) {
+        resetMediaZoom(true);
+      } else {
+        zoomScale = 2.5;
+        panX = 0;
+        panY = 0;
+        applyMediaTransform(true);
+      }
+      lastTapTime = 0;
+      gestureMode = null;
+      return;
+    }
+
+    lastTapTime = now;
+    lastTapX = touch.clientX;
+    lastTapY = touch.clientY;
+
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchCurrentX = touch.clientX;
+    touchCurrentY = touch.clientY;
+
+    // 이미 확대된 상태면 이미지 이동(Pan) 모드로 설정
+    if (zoomScale > 1.02) {
+      gestureMode = "pan";
+      startPanX = touch.clientX - panX;
+      startPanY = touch.clientY - panY;
+    } else {
+      gestureMode = "decide";
+    }
+  }
+}, { passive: false });
+
+viewerContainer.addEventListener("touchmove", (e) => {
+  if (!gestureMode) return;
+
+  // 1. 두 손가락 핀치 줌 처리
+  if (gestureMode === "pinch" && e.touches.length === 2) {
+    e.preventDefault();
+    const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
+    if (initialPinchDistance && initialPinchDistance > 0) {
+      const ratio = currentDist / initialPinchDistance;
+      zoomScale = Math.min(Math.max(1, initialZoomScale * ratio), 4);
+      clampPanBounds();
+      applyMediaTransform(false);
+    }
+    return;
+  }
+
+  if (e.touches.length !== 1) return;
+  const touch = e.touches[0];
+  touchCurrentX = touch.clientX;
+  touchCurrentY = touch.clientY;
+
+  const dx = touchCurrentX - touchStartX;
+  const dy = touchCurrentY - touchStartY;
+
+  // 2. 확대 상태에서 한 손가락 팬(Pan) 이동 처리
+  if (gestureMode === "pan") {
+    e.preventDefault();
+    panX = touch.clientX - startPanX;
+    panY = touch.clientY - startPanY;
+    clampPanBounds();
+    applyMediaTransform(false);
+    return;
+  }
+
+  // 3. 1배율 상태에서 최초 이동 방향 판별
+  if (gestureMode === "decide") {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+
+    // 위에서 아래로 내리는 동작이 가로 이동보다 1.2배 이상 크면 드래그 닫기 모드로 진입
+    if (dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+      gestureMode = "drag-close";
+    } else if (Math.abs(dx) > Math.abs(dy)) {
+      gestureMode = "swipe-horizontal";
+    } else {
+      gestureMode = null;
+      return;
+    }
+  }
+
+  // 4. 방식 2: 드래그 연동 애니메이션 닫기 처리
+  if (gestureMode === "drag-close") {
+    e.preventDefault();
+    const dragY = Math.max(0, dy);
+    const dragX = dx * 0.25;
+    const dragScale = Math.max(0.78, 1 - dragY / 1000);
+    const bgAlpha = Math.max(0.15, 1 - dragY / 380);
+    const uiOpacity = Math.max(0, 1 - dragY / 180);
+
+    const activeEl = getActiveMediaElement();
+    const modal = document.getElementById("viewer-modal");
+
+    if (activeEl) {
+      activeEl.style.transition = "none";
+      activeEl.style.transform = `translate3d(${dragX}px, ${dragY}px, 0) scale(${dragScale})`;
+    }
+    if (modal) {
+      modal.style.backgroundColor = `rgba(0, 0, 0, ${bgAlpha})`;
+    }
+    setViewerOverlayOpacity(uiOpacity);
+  }
+}, { passive: false });
 
 viewerContainer.addEventListener("touchend", (e) => {
-  touchEndX = e.changedTouches[0].screenX;
-  handleSwipe();
-}, false);
+  // 핀치 줌 도중 한 손가락만 뗀 경우 자연스럽게 Pan 모드로 이어지도록 좌표 갱신
+  if (gestureMode === "pinch") {
+    if (zoomScale < 1.05) {
+      resetMediaZoom(true);
+    } else if (e.touches.length === 1) {
+      gestureMode = "pan";
+      startPanX = e.touches[0].clientX - panX;
+      startPanY = e.touches[0].clientY - panY;
+    } else {
+      gestureMode = null;
+    }
+    return;
+  }
 
-function handleSwipe() {
-  if (touchEndX < touchStartX - 50) nextMedia();
-  if (touchEndX > touchStartX + 50) prevMedia();
-}
+  // 드래그 닫기 종료 판정 (110px 이상 내려갔으면 닫기 애니메이션 완료, 아니면 복귀)
+  if (gestureMode === "drag-close") {
+    const dy = touchCurrentY - touchStartY;
+    const activeEl = getActiveMediaElement();
+    const modal = document.getElementById("viewer-modal");
+
+    if (dy > 110) {
+      if (activeEl) {
+        activeEl.style.transition = "transform 0.2s ease-in, opacity 0.2s ease-in";
+        activeEl.style.transform = `translate3d(0px, ${window.innerHeight}px, 0) scale(0.75)`;
+      }
+      if (modal) {
+        modal.style.backgroundColor = "rgba(0, 0, 0, 0)";
+      }
+      setTimeout(() => {
+        if (activeEl) activeEl.style.opacity = "1";
+        closeViewer();
+      }, 200);
+    } else {
+      resetMediaZoom(true);
+    }
+    gestureMode = null;
+    return;
+  }
+
+  // 좌우 스와이프 이전/다음 미디어 전환 판정
+  if (gestureMode === "swipe-horizontal") {
+    const dx = touchCurrentX - touchStartX;
+    if (dx < -50) nextMedia();
+    if (dx > 50) prevMedia();
+    gestureMode = null;
+    return;
+  }
+
+  if (e.touches.length === 0) {
+    gestureMode = null;
+  }
+}, false);
 
 function toggleAdminModal(show) {
   const modal = document.getElementById("admin-modal");
