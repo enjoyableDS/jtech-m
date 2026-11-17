@@ -1,20 +1,22 @@
 {
   "name": "제이텍 단열탄성",
   "short_name": "제이텍",
-  "start_url": "./index.html",
+  "start_url": "./jtech-m.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1d4ed8",
   "icons": [
     {
-      "src": "https://via.placeholder.com/192/1d4ed8/ffffff?text=JTECH",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://via.placeholder.com/512/1d4ed8/ffffff?text=JTECH",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
