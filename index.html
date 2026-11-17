@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>JTECH 단열탄성 상담 시스템</title>
+  
+  <!-- PWA 필수 설정 (GitHub Pages 연동 및 앱 설치 트리거) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1b4396">
+  <link rel="apple-touch-icon" href="https://via.placeholder.com/192/1b4396/ffffff?text=JTECH">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#1b4396',
+            brandDark: '#122e69',
+            brandLight: '#eef3fc'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    /* 모바일/태블릿 터치 스와이프 스크롤 및 스크롤바 시인성 강화 */
+    .custom-scrollbar {
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      overscroll-behavior-y: contain;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background-color: #f1f5f9;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #94a3b8;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background-color: #64748b;
+    }
+    /* Fullscreen media object fit handling */
+    .media-fit-contain {
+      object-fit: contain;
+    }
+    .media-fit-cover {
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen h-[100dvh] flex flex-col overflow-hidden">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm shrink-0">
+    <div class="flex items-center gap-3">
+      <!-- Logo Branding (Matches Reference) -->
+      <div class="flex flex-col items-center justify-center border-2 border-brand px-4 py-1.5 rounded-md cursor-pointer" onclick="goHome()">
+        <span class="text-2xl font-black tracking-wider text-brand leading-none">JTECH</span>
+        <span class="text-[10px] font-bold text-gray-500 tracking-tighter mt-0.5">SINCE 2010</span>
+        <span class="text-[11px] font-extrabold text-brand tracking-widest leading-none mt-0.5">단열탄성 제이텍</span>
+      </div>
+    </div>
+
+    <!-- Title / Breadcrumb display -->
+    <div id="header-title" class="text-xl font-bold text-brand flex items-center gap-2">
+      <span>고객 상담 카탈로그</span>
+    </div>
+
+    <!-- Header Controls -->
+    <div class="flex items-center gap-3">
+      <button onclick="goHome()" id="btn-home" class="hidden px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-brand font-bold flex items-center gap-2 text-sm transition">
+        <i class="fa-solid fa-house"></i> 메인으로
+      </button>
+      <button onclick="toggleAdminModal(true)" class="px-4 py-2 bg-brand hover:bg-brandDark text-white rounded-lg font-bold flex items-center gap-2 text-sm shadow transition">
+        <i class="fa-solid fa-gear"></i> 항목/미디어 관리
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main class="flex-1 min-h-0 relative overflow-y-auto custom-scrollbar p-6">
+
+    <!-- 1. CATEGORY GRID VIEW (MAIN HOME) -->
+    <div id="view-categories" class="max-w-7xl mx-auto min-h-full py-2 pb-10 flex flex-col justify-center">
+      <div id="category-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 my-auto">
+        <!-- Dynamically rendered Category Cards -->
+      </div>
+    </div>
+
+    <!-- 2. MEDIA GALLERY GRID VIEW (INSIDE CATEGORY) -->
+    <div id="view-gallery" class="hidden max-w-7xl mx-auto pb-12">
+      <div class="flex items-center justify-between mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div>
+          <h2 id="current-category-name" class="text-2xl font-bold text-brand">시공전</h2>
+          <p id="current-category-count" class="text-xs text-gray-500 mt-0.5">총 0개의 미디어</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="goHome()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg text-sm flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-arrow-left"></i> 뒤로가기
+          </button>
+        </div>
+      </div>
+
+      <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <!-- Dynamically rendered Media Thumbnails -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="gallery-empty" class="hidden flex-col items-center justify-center py-20 text-center">
+        <i class="fa-regular fa-folder-open text-6xl text-gray-300 mb-3"></i>
+        <p class="text-gray-500 font-medium">등록된 사진이나 동영상이 없습니다.</p>
+        <button onclick="openCategoryAdminFromGallery()" class="mt-4 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-lg shadow">
+          + 파일 추가하기
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 3. FULLSCREEN MEDIA VIEWER MODAL -->
+  <div id="viewer-modal" class="fixed inset-0 bg-black z-50 hidden flex flex-col items-center justify-center select-none">
+
+    <!-- Fullscreen Controls Header -->
+    <div id="viewer-header" class="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-20 flex justify-between items-center transition-opacity duration-300">
+      <div class="text-white">
+        <span id="viewer-category-tag" class="text-xs bg-brand text-white px-2.5 py-1 rounded-full font-bold">카테고리</span>
+        <h3 id="viewer-title" class="text-base font-medium mt-1 truncate max-w-md">파일명</h3>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Fit Toggle (Contain / Cover) -->
+        <button onclick="toggleMediaFit()" title="화면 맞춤 전환" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition">
+          <i id="fit-icon" class="fa-solid fa-expand"></i>
+        </button>
+        <!-- Close button -->
+        <button onclick="closeViewer()" title="닫기" class="w-10 h-10 rounded-full bg-white/20 hover:bg-red-600 text-white flex items-center justify-center backdrop-blur-md transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Media Display Area -->
+    <div class="w-full h-full flex items-center justify-center relative overflow-hidden" id="viewer-container">
+      <img id="viewer-image" src="" alt="Full view" class="w-full h-full media-fit-contain hidden">
+      <video id="viewer-video" controls class="w-full h-full media-fit-contain hidden" playsinline></video>
+    </div>
+
+    <!-- Navigation Arrows -->
+    <button onclick="prevMedia()" class="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
+      <i class="fa-solid fa-chevron-left text-2xl"></i>
+    </button>
+    <button onclick="nextMedia()" class="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
+      <i class="fa-solid fa-chevron-right text-2xl"></i>
+    </button>
+
+    <!-- Bottom Indicator -->
+    <div id="viewer-footer" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-semibold z-20">
+      <span id="viewer-index">1</span> / <span id="viewer-total">1</span>
+    </div>
+  </div>
+
+  <!-- 4. ADMIN & MEDIA MANAGEMENT MODAL -->
+  <div id="admin-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-brand text-white flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-xl"></i>
+          <h3 class="text-lg font-bold">카테고리 및 미디어 콘텐츠 관리자</h3>
+        </div>
+        <button onclick="toggleAdminModal(false)" class="text-white/80 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Two Column Layout) -->
+      <div class="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-3">
+
+        <!-- Left: Category List Management -->
+        <div class="p-4 border-r border-gray-200 flex flex-col bg-gray-50 h-full">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-bold text-gray-700 text-sm">카테고리 목록 (<span id="cat-count">0</span>)</h4>
+            <button onclick="addNewCategoryPrompt()" class="text-xs bg-brand text-white px-2.5 py-1 rounded hover:bg-brandDark font-semibold">
+              + 항목 추가
+            </button>
+          </div>
+          <div id="admin-category-list" class="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+            <!-- Dynamically populated category buttons -->
+          </div>
+        </div>
+
+        <!-- Right: Media File Upload & Manager -->
+        <div class="md:col-span-2 p-5 flex flex-col h-full bg-white overflow-y-auto custom-scrollbar">
+          <div class="flex justify-between items-center pb-3 border-b border-gray-200 mb-4">
+            <div>
+              <span class="text-xs text-brand font-bold tracking-wide uppercase">선택된 카테고리</span>
+              <h4 id="admin-selected-cat-title" class="text-xl font-bold text-gray-800">카테고리를 선택하세요</h4>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="renameSelectedCategory()" class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold">
+                이름 변경
+              </button>
+              <button onclick="deleteSelectedCategory()" class="px-3 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-semibold">
+                카테고리 삭제
+              </button>
+            </div>
+          </div>
+
+          <!-- File Upload Zone -->
+          <div class="mb-5">
+            <label class="border-2 border-dashed border-gray-300 hover:border-brand rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-brandLight/30 transition">
+              <i class="fa-solid fa-cloud-arrow-up text-3xl text-brand mb-2"></i>
+              <span class="text-sm font-bold text-gray-700">사진 또는 동영상 추가하기</span>
+              <span class="text-xs text-gray-400 mt-1">이미지(JPG, PNG, WEBP) / 동영상(MP4, WEBM)</span>
+              <input type="file" id="media-file-input" multiple accept="image/*,video/*" class="hidden" onchange="handleFileUpload(event)">
+            </label>
+          </div>
+
+          <!-- Current Category Media Grid Manager -->
+          <h5 class="text-xs font-bold text-gray-500 mb-2">등록된 미디어 파일 목록</h5>
+          <div id="admin-media-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <!-- Dynamically populated media previews -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3 bg-gray-100 border-t border-gray-200 flex justify-between items-center text-xs text-gray-500">
+        <span>* 저장된 파일은 스마트폰 내부 브라우저 저장소(IndexedDB)에 안전하게 유지됩니다.</span>
+        <button onclick="toggleAdminModal(false)" class="px-5 py-2 bg-brand text-white font-bold rounded-lg hover:bg-brandDark transition">
+          완료 및 닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // --- 1. PWA Service Worker 정식 등록 (GitHub 호스팅 앱 설치용) ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Error:', err));
+      });
+    }
+
+    // --- 2. 초기 기본 데이터 설정 ---
+    const DEFAULT_CATEGORIES = [
+      "사업자", "인증서", "시공전", "시공후", "자재안내",
+      "시공과정", "가격표", "A/S규정", "고객후기", "기타안내"
+    ];
+
+    // App State
+    let categories = [];
+    let mediaStorage = {}; // { catId: [ { id, name, type, dataUrl } ] }
+    let currentCategoryId = null;
+    let currentMediaList = [];
+    let currentViewerIndex = 0;
+    let isFitContain = true;
+
+    // --- 3. INDEXED DB STORAGE (오프라인 사진/영상 기기 내부 저장소 활용) ---
+    const DB_NAME = "JTechConsultationDB";
+    const DB_VERSION = 1;
+    let db = null;
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains("categories")) {
+            database.createObjectStore("categories", { keyPath: "id" });
+          }
+          if (!database.objectStoreNames.contains("media")) {
+            database.createObjectStore("media", { keyPath: "id" });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    async function loadDataFromDB() {
+      await initDB();
+
+      // Load Categories
+      const catTransaction = db.transaction("categories", "readonly");
+      const catStore = catTransaction.objectStore("categories");
+      const catRequest = catStore.getAll();
+
+      catRequest.onsuccess = async () => {
+        let loadedCats = catRequest.result;
+        if (!loadedCats || loadedCats.length === 0) {
+          // Initialize Default
+          categories = DEFAULT_CATEGORIES.map((name, index) => ({
+            id: "cat_" + Date.now() + "_" + index,
+            name: name,
+            order: index
+          }));
+          await saveAllCategories();
+        } else {
+          categories = loadedCats.sort((a, b) => a.order - b.order);
+        }
+
+        // Load Media
+        const mediaTransaction = db.transaction("media", "readonly");
+        const mediaStore = mediaTransaction.objectStore("media");
+        const mediaRequest = mediaStore.getAll();
+
+        mediaRequest.onsuccess = () => {
+          const allMedia = mediaRequest.result || [];
+          mediaStorage = {};
+          categories.forEach(c => mediaStorage[c.id] = []);
+          allMedia.forEach(item => {
+            if (mediaStorage[item.categoryId]) {
+              mediaStorage[item.categoryId].push(item);
+            }
+          });
+          renderCategoryGrid();
+        };
+      };
+    }
+
+    function saveAllCategories() {
+      return new Promise((resolve) => {
+        const tx = db.transaction("categories", "readwrite");
+        const store = tx.objectStore("categories");
+        store.clear();
+        categories.forEach(cat => store.put(cat));
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    function saveMediaItem(item) {
+      return new Promise((resolve) => {
+        const tx = db.transaction("media", "readwrite");
+        const store = tx.objectStore("media");
+        store.put(item);
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    function deleteMediaItemFromDB(id) {
+      return new Promise((resolve) => {
+        const tx = db.transaction("media", "readwrite");
+        const store = tx.objectStore("media");
+        store.delete(id);
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    // --- 4. RENDER FUNCTIONS (화면 그리기) ---
+
+    // Render Main Grid (10개 카테고리 카드 렌더링)
+    function renderCategoryGrid() {
+      const grid = document.getElementById("category-grid");
+      grid.innerHTML = "";
+
+      categories.forEach(cat => {
+        const items = mediaStorage[cat.id] || [];
+        const card = document.createElement("div");
+        card.className = "group relative bg-white border-[3px] border-brand rounded-2xl aspect-square flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-brandLight/50 hover:shadow-xl transition-all duration-200 active:scale-95";
+        card.onclick = () => openCategory(cat.id);
+
+        card.innerHTML = `
+          <span class="text-xl sm:text-2xl font-black text-brand text-center group-hover:scale-105 transition-transform duration-200 leading-tight">
+            ${cat.name}
+          </span>
+          ${items.length > 0 ? `
+            <span class="absolute bottom-3 right-3 text-[11px] font-bold bg-brand text-white px-2 py-0.5 rounded-full">
+              ${items.length}
+            </span>
+          ` : ''}
+        `;
+        grid.appendChild(card);
+      });
+
+      document.getElementById("view-categories").classList.remove("hidden");
+      document.getElementById("view-gallery").classList.add("hidden");
+      document.getElementById("btn-home").classList.add("hidden");
+      document.getElementById("header-title").innerHTML = `<span>고객 상담 카탈로그</span>`;
+    }
+
+    // Open Specific Category Gallery
+    function openCategory(catId) {
+      currentCategoryId = catId;
+      const category = categories.find(c => c.id === catId);
+      if (!category) return;
+
+      const items = mediaStorage[catId] || [];
+
+      document.getElementById("current-category-name").innerText = category.name;
+      document.getElementById("current-category-count").innerText = `총 ${items.length}개의 미디어 파일`;
+      document.getElementById("header-title").innerHTML = `<span class="text-gray-400">카테고리 &gt;</span> <span class="text-brand">${category.name}</span>`;
+
+      const galleryGrid = document.getElementById("gallery-grid");
+      const emptyState = document.getElementById("gallery-empty");
+      galleryGrid.innerHTML = "";
+
+      if (items.length === 0) {
+        galleryGrid.classList.add("hidden");
+        emptyState.classList.remove("hidden");
+        emptyState.classList.add("flex");
+      } else {
+        galleryGrid.classList.remove("hidden");
+        emptyState.classList.add("hidden");
+        emptyState.classList.remove("flex");
+
+        items.forEach((item, idx) => {
+          const card = document.createElement("div");
+          card.className = "bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer aspect-square relative group";
+          card.onclick = () => openViewer(idx);
+
+          if (item.type.startsWith("image/")) {
+            card.innerHTML = `
+              <img src="${item.dataUrl}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="${item.name}">
+              <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                <i class="fa-solid fa-magnifying-glass-plus text-2xl"></i>
+              </div>
+            `;
+          } else {
+            card.innerHTML = `
+              <video src="${item.dataUrl}" class="w-full h-full object-cover"></video>
+              <div class="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                <i class="fa-solid fa-circle-play text-4xl group-hover:scale-110 transition"></i>
+              </div>
+              <span class="absolute bottom-2 left-2 text-[10px] bg-black/70 text-white px-2 py-0.5 rounded-full font-bold">동영상</span>
+            `;
+          }
+          galleryGrid.appendChild(card);
+        });
+      }
+
+      document.getElementById("view-categories").classList.add("hidden");
+      document.getElementById("view-gallery").classList.remove("hidden");
+      document.getElementById("btn-home").classList.remove("hidden");
+    }
+
+    function goHome() {
+      currentCategoryId = null;
+      renderCategoryGrid();
+    }
+
+    // --- 5. FULLSCREEN VIEWER FUNCTIONS ---
+
+    function openViewer(index) {
+      if (!currentCategoryId) return;
+      currentMediaList = mediaStorage[currentCategoryId] || [];
+      if (currentMediaList.length === 0) return;
+
+      currentViewerIndex = index;
+      const modal = document.getElementById("viewer-modal");
+      modal.classList.remove("hidden");
+
+      updateViewerContent();
+    }
+
+    function updateViewerContent() {
+      const item = currentMediaList[currentViewerIndex];
+      const category = categories.find(c => c.id === currentCategoryId);
+
+      document.getElementById("viewer-category-tag").innerText = category ? category.name : "";
+      document.getElementById("viewer-title").innerText = item.name;
+      document.getElementById("viewer-index").innerText = currentViewerIndex + 1;
+      document.getElementById("viewer-total").innerText = currentMediaList.length;
+
+      const imgEl = document.getElementById("viewer-image");
+      const videoEl = document.getElementById("viewer-video");
+
+      // Reset fit style
+      imgEl.className = `w-full h-full ${isFitContain ? 'media-fit-contain' : 'media-fit-cover'}`;
+      videoEl.className = `w-full h-full ${isFitContain ? 'media-fit-contain' : 'media-fit-cover'}`;
+
+      if (item.type.startsWith("image/")) {
+        videoEl.pause();
+        videoEl.classList.add("hidden");
+        imgEl.src = item.dataUrl;
+        imgEl.classList.remove("hidden");
+      } else {
+        imgEl.classList.add("hidden");
+        videoEl.src = item.dataUrl;
+        videoEl.classList.remove("hidden");
+        videoEl.play().catch(() => {});
+      }
+    }
+
+    function closeViewer() {
+      const videoEl = document.getElementById("viewer-video");
+      videoEl.pause();
+      document.getElementById("viewer-modal").classList.add("hidden");
+    }
+
+    function nextMedia() {
+      if (currentMediaList.length === 0) return;
+      currentViewerIndex = (currentViewerIndex + 1) % currentMediaList.length;
+      updateViewerContent();
+    }
+
+    function prevMedia() {
+      if (currentMediaList.length === 0) return;
+      currentViewerIndex = (currentViewerIndex - 1 + currentMediaList.length) % currentMediaList.length;
+      updateViewerContent();
+    }
+
+    function toggleMediaFit() {
+      isFitContain = !isFitContain;
+      const fitIcon = document.getElementById("fit-icon");
+      if (isFitContain) {
+        fitIcon.className = "fa-solid fa-expand";
+      } else {
+        fitIcon.className = "fa-solid fa-compress";
+      }
+      updateViewerContent();
+    }
+
+    // Touch Swipe Gestures for Viewer
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const viewerContainer = document.getElementById("viewer-container");
+
+    viewerContainer.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, false);
+
+    viewerContainer.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, false);
+
+    function handleSwipe() {
+      if (touchEndX < touchStartX - 50) nextMedia(); // Swipe Left
+      if (touchEndX > touchStartX + 50) prevMedia(); // Swipe Right
+    }
+
+    // --- 6. ADMIN / MANAGEMENT FUNCTIONS ---
+
+    function toggleAdminModal(show) {
+      const modal = document.getElementById("admin-modal");
+      if (show) {
+        renderAdminCategories();
+        modal.classList.remove("hidden");
+      } else {
+        modal.classList.add("hidden");
+        if (currentCategoryId) {
+          openCategory(currentCategoryId);
+        } else {
+          renderCategoryGrid();
+        }
+      }
+    }
+
+    function renderAdminCategories() {
+      const catList = document.getElementById("admin-category-list");
+      document.getElementById("cat-count").innerText = categories.length;
+      catList.innerHTML = "";
+
+      if (!currentCategoryId && categories.length > 0) {
+        currentCategoryId = categories[0].id;
+      }
+
+      categories.forEach(cat => {
+        const isSelected = cat.id === currentCategoryId;
+        const btn = document.createElement("button");
+        btn.className = `w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold flex justify-between items-center transition ${
+          isSelected ? 'bg-brand text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-200 border border-gray-200'
+        }`;
+        btn.onclick = () => selectAdminCategory(cat.id);
+        btn.innerHTML = `
+          <span class="truncate">${cat.name}</span>
+          <span class="text-[10px] opacity-80 bg-black/10 px-1.5 py-0.5 rounded">
+            ${(mediaStorage[cat.id] || []).length}개
+          </span>
+        `;
+        catList.appendChild(btn);
+      });
+
+      renderAdminMediaGrid();
+    }
+
+    function selectAdminCategory(catId) {
+      currentCategoryId = catId;
+      renderAdminCategories();
+    }
+
+    function renderAdminMediaGrid() {
+      const category = categories.find(c => c.id === currentCategoryId);
+      const titleEl = document.getElementById("admin-selected-cat-title");
+      const grid = document.getElementById("admin-media-grid");
+
+      if (!category) {
+        titleEl.innerText = "카테고리를 선택하세요";
+        grid.innerHTML = "";
+        return;
+      }
+
+      titleEl.innerText = category.name;
+      const items = mediaStorage[currentCategoryId] || [];
+      grid.innerHTML = "";
+
+      items.forEach(item => {
+        const itemCard = document.createElement("div");
+        itemCard.className = "relative aspect-square border border-gray-200 rounded-lg overflow-hidden group bg-black";
+
+        if (item.type.startsWith("image/")) {
+          itemCard.innerHTML = `<img src="${item.dataUrl}" class="w-full h-full object-cover">`;
+        } else {
+          itemCard.innerHTML = `<video src="${item.dataUrl}" class="w-full h-full object-cover"></video>`;
+        }
+
+        // Delete overlay button
+        const delBtn = document.createElement("button");
+        delBtn.className = "absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow";
+        delBtn.innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await deleteMediaItemFromDB(item.id);
+          mediaStorage[currentCategoryId] = mediaStorage[currentCategoryId].filter(m => m.id !== item.id);
+          renderAdminCategories();
+        };
+
+        itemCard.appendChild(delBtn);
+        grid.appendChild(itemCard);
+      });
+    }
+
+    // Handle File Upload from Local Device / Phone Gallery
+    async function handleFileUpload(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0 || !currentCategoryId) return;
+
+      for (let file of files) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const mediaObj = {
+            id: "media_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+            categoryId: currentCategoryId,
+            name: file.name,
+            type: file.type,
+            dataUrl: e.target.result
+          };
+          await saveMediaItem(mediaObj);
+          if (!mediaStorage[currentCategoryId]) mediaStorage[currentCategoryId] = [];
+          mediaStorage[currentCategoryId].push(mediaObj);
+          renderAdminCategories();
+        };
+        reader.readAsDataURL(file);
+      }
+      event.target.value = ""; // Reset file input
+    }
+
+    // Add New Category
+    async function addNewCategoryPrompt() {
+      const name = prompt("새 카테고리 이름을 입력하세요:");
+      if (name && name.trim()) {
+        const newCat = {
+          id: "cat_" + Date.now(),
+          name: name.trim(),
+          order: categories.length
+        };
+        categories.push(newCat);
+        mediaStorage[newCat.id] = [];
+        await saveAllCategories();
+        currentCategoryId = newCat.id;
+        renderAdminCategories();
+      }
+    }
+
+    // Rename Selected Category
+    async function renameSelectedCategory() {
+      const category = categories.find(c => c.id === currentCategoryId);
+      if (!category) return;
+      const newName = prompt("카테고리 이름 수정:", category.name);
+      if (newName && newName.trim()) {
+        category.name = newName.trim();
+        await saveAllCategories();
+        renderAdminCategories();
+      }
+    }
+
+    // Delete Selected Category
+    async function deleteSelectedCategory() {
+      if (!currentCategoryId) return;
+      if (confirm("이 카테고리와 내부의 모든 미디어 파일이 삭제됩니다. 계속하시겠습니까?")) {
+        // Delete all media associated
+        const items = mediaStorage[currentCategoryId] || [];
+        for (let item of items) {
+          await deleteMediaItemFromDB(item.id);
+        }
+        delete mediaStorage[currentCategoryId];
+        categories = categories.filter(c => c.id !== currentCategoryId);
+        await saveAllCategories();
+        currentCategoryId = categories.length > 0 ? categories[0].id : null;
+        renderAdminCategories();
+      }
+    }
+
+    function openCategoryAdminFromGallery() {
+      toggleAdminModal(true);
+    }
+
+    // Keyboard Navigation Support
+    document.addEventListener("keydown", (e) => {
+      const modal = document.getElementById("viewer-modal");
+      if (!modal.classList.contains("hidden")) {
+        if (e.key === "ArrowRight") nextMedia();
+        if (e.key === "ArrowLeft") prevMedia();
+        if (e.key === "Escape") closeViewer();
+      }
+    });
+
+    // STARTUP
+    window.onload = () => {
+      loadDataFromDB();
+    };
+  </script>
+</body>
+</html>
