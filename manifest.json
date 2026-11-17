@@ -1,7 +1,7 @@
 {
   "name": "제이텍 단열탄성",
   "short_name": "제이텍",
-  "start_url": "./jtech-m.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1d4ed8",
