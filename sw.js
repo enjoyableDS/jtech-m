@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((response) => {
         if (response && response.status === 200) {
           const resClone = response.clone();
