@@ -774,6 +774,7 @@ async function loadDataFromDB() {
   }
 }
 
+// 상단 카테고리 칩 버튼 크기 확대 반영 (px-4 py-2.5, text-sm sm:text-base)
 function renderTopCategoryBar() {
   const topBar = document.getElementById("top-category-bar");
   topBar.innerHTML = "";
@@ -781,17 +782,17 @@ function renderTopCategoryBar() {
   categories.forEach(cat => {
     const isSelected = currentCategoryId === cat.id;
     const btn = document.createElement("button");
-    btn.className = `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+    btn.className = `whitespace-nowrap px-4 py-2.5 rounded-xl text-sm sm:text-base font-extrabold transition flex items-center gap-2 shrink-0 ${
       isSelected 
-        ? 'bg-brand text-white shadow-sm' 
-        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+        ? 'bg-brand text-white shadow-md scale-[1.02]' 
+        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200/80'
     }`;
     btn.onclick = () => openCategory(cat.id);
 
     const count = (mediaStorage[cat.id] || []).length;
     btn.innerHTML = `
       <span>${cat.name}</span>
-      <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}">${count}</span>
+      <span class="text-xs px-2 py-0.5 rounded-full font-bold ${isSelected ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'}">${count}</span>
     `;
     topBar.appendChild(btn);
   });
