@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jtech-v4';
+const CACHE_NAME = 'jtech-v5';
 const urlsToCache = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -25,13 +25,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const resClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, resClone);
-        });
+        if (response && response.status === 200) {
+          const resClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, resClone);
+          });
+        }
         return response;
       })
       .catch(() => caches.match(event.request))
