@@ -121,8 +121,8 @@ body {
     </div>
   </div>
 
-  <!-- TOP CATEGORY MENU BAR (여백 및 정렬 개선) -->
-  <nav id="top-category-bar" class="flex items-center justify-start xl:justify-center gap-2.5 overflow-x-auto custom-scrollbar pt-2.5 pb-1.5 border-t border-gray-100">
+  <!-- TOP CATEGORY MENU BAR (직전 확대 버전 대비 약 10% 축소) -->
+  <nav id="top-category-bar" class="flex items-center justify-start xl:justify-center gap-2 overflow-x-auto custom-scrollbar pt-2 pb-1 border-t border-gray-100">
     <!-- 동적으로 카테고리 칩 버튼들이 생성됩니다 -->
   </nav>
 </header>
@@ -774,7 +774,7 @@ async function loadDataFromDB() {
   }
 }
 
-// 상단 카테고리 칩 버튼 크기 확대 반영 (px-4 py-2.5, text-sm sm:text-base)
+// 상단 카테고리 칩 버튼 (직전 확대 버전 대비 약 10% 축소: px-3.5 py-2, text-[13px] sm:text-[14.5px])
 function renderTopCategoryBar() {
   const topBar = document.getElementById("top-category-bar");
   topBar.innerHTML = "";
@@ -782,9 +782,9 @@ function renderTopCategoryBar() {
   categories.forEach(cat => {
     const isSelected = currentCategoryId === cat.id;
     const btn = document.createElement("button");
-    btn.className = `whitespace-nowrap px-4 py-2.5 rounded-xl text-sm sm:text-base font-extrabold transition flex items-center gap-2 shrink-0 ${
+    btn.className = `whitespace-nowrap px-3.5 py-2 rounded-xl text-[13px] sm:text-[14.5px] font-extrabold transition flex items-center gap-1.5 shrink-0 ${
       isSelected 
-        ? 'bg-brand text-white shadow-md scale-[1.02]' 
+        ? 'bg-brand text-white shadow-sm scale-[1.01]' 
         : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200/80'
     }`;
     btn.onclick = () => openCategory(cat.id);
@@ -792,7 +792,7 @@ function renderTopCategoryBar() {
     const count = (mediaStorage[cat.id] || []).length;
     btn.innerHTML = `
       <span>${cat.name}</span>
-      <span class="text-xs px-2 py-0.5 rounded-full font-bold ${isSelected ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'}">${count}</span>
+      <span class="text-[11px] px-1.5 py-0.5 rounded-full font-bold leading-none ${isSelected ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'}">${count}</span>
     `;
     topBar.appendChild(btn);
   });
