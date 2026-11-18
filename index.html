@@ -86,6 +86,27 @@ body {
   transform-origin: center center;
   will-change: transform;
 }
+
+/* 터치 기기: 좌우 이동 화살표 숨김 (스와이프 제스처만 사용) */
+@media (hover: none) and (pointer: coarse) {
+  #viewer-prev-btn, #viewer-next-btn {
+    display: none !important;
+  }
+}
+
+/* 마우스 기기: 평소에는 숨겨져 있다가 뷰어에 마우스 오버 시 표시 */
+@media (hover: hover) and (pointer: fine) {
+  #viewer-prev-btn, #viewer-next-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+  }
+  #viewer-modal:hover #viewer-prev-btn,
+  #viewer-modal:hover #viewer-next-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen h-[100dvh] flex flex-col overflow-hidden">
@@ -121,7 +142,7 @@ body {
     </div>
   </div>
 
-  <!-- TOP CATEGORY MENU BAR (직전 확대 버전 대비 약 10% 축소) -->
+  <!-- TOP CATEGORY MENU BAR -->
   <nav id="top-category-bar" class="flex items-center justify-start xl:justify-center gap-2 overflow-x-auto custom-scrollbar pt-2 pb-1 border-t border-gray-100">
     <!-- 동적으로 카테고리 칩 버튼들이 생성됩니다 -->
   </nav>
@@ -338,7 +359,7 @@ body {
 // [실시간 동기화 설정] Firebase Realtime Database URL
 // ============================================================================
 const FIREBASE_CONFIG = {
-  databaseURL: "https://jtech-m-default-rtdb.firebaseio.com" // 예: "https://jtech-m-default-rtdb.firebaseio.com"
+  databaseURL: "https://jtech-m-default-rtdb.firebaseio.com"
 };
 
 const SYNC_URL_STORAGE_KEY = "jtech_firebase_db_url";
@@ -774,7 +795,7 @@ async function loadDataFromDB() {
   }
 }
 
-// 상단 카테고리 칩 버튼 (직전 확대 버전 대비 약 10% 축소: px-3.5 py-2, text-[13px] sm:text-[14.5px])
+// 상단 카테고리 칩 버튼
 function renderTopCategoryBar() {
   const topBar = document.getElementById("top-category-bar");
   topBar.innerHTML = "";
@@ -923,9 +944,8 @@ function getActiveMediaElement() {
 function setViewerOverlayOpacity(opacity) {
   const header = document.getElementById("viewer-header");
   const footer = document.getElementById("viewer-footer");
-  const prevBtn = document.getElementById("viewer-prev-btn");
-  const nextBtn = document.getElementById("viewer-next-btn");
-  [header, footer, prevBtn, nextBtn].forEach(el => {
+  // 화살표 버튼의 마우스 hover 제어와 충돌하지 않도록 상/하단 바만 투명도 제어
+  [header, footer].forEach(el => {
     if (el) el.style.opacity = String(opacity);
   });
 }
@@ -1069,7 +1089,6 @@ function toggleMediaFit() {
 const viewerContainer = document.getElementById("viewer-container");
 
 viewerContainer.addEventListener("touchstart", (e) => {
-  // 두 손가락 터치 시 핀치 줌 모드 진입
   if (e.touches.length === 2) {
     gestureMode = "pinch";
     initialPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
@@ -1081,14 +1100,12 @@ viewerContainer.addEventListener("touchstart", (e) => {
     const touch = e.touches[0];
     const now = Date.now();
 
-    // 동영상 하단 컨트롤 바 영역(하단 80px) 터치 시 기본 조작 허용
     const videoEl = document.getElementById("viewer-video");
     if (!videoEl.classList.contains("hidden") && touch.clientY > window.innerHeight - 80) {
       gestureMode = null;
       return;
     }
 
-    // 더블탭 감지 (300ms 이내, 거리 35px 이내) -> 1배 / 2.5배 전환
     if (now - lastTapTime < 300 && Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY) < 35) {
       e.preventDefault();
       if (zoomScale > 1.05) {
@@ -1113,7 +1130,6 @@ viewerContainer.addEventListener("touchstart", (e) => {
     touchCurrentX = touch.clientX;
     touchCurrentY = touch.clientY;
 
-    // 이미 확대된 상태면 이미지 이동(Pan) 모드로 설정
     if (zoomScale > 1.02) {
       gestureMode = "pan";
       startPanX = touch.clientX - panX;
@@ -1127,7 +1143,6 @@ viewerContainer.addEventListener("touchstart", (e) => {
 viewerContainer.addEventListener("touchmove", (e) => {
   if (!gestureMode) return;
 
-  // 1. 두 손가락 핀치 줌 처리
   if (gestureMode === "pinch" && e.touches.length === 2) {
     e.preventDefault();
     const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
@@ -1148,7 +1163,6 @@ viewerContainer.addEventListener("touchmove", (e) => {
   const dx = touchCurrentX - touchStartX;
   const dy = touchCurrentY - touchStartY;
 
-  // 2. 확대 상태에서 한 손가락 팬(Pan) 이동 처리
   if (gestureMode === "pan") {
     e.preventDefault();
     panX = touch.clientX - startPanX;
@@ -1158,11 +1172,9 @@ viewerContainer.addEventListener("touchmove", (e) => {
     return;
   }
 
-  // 3. 1배율 상태에서 최초 이동 방향 판별
   if (gestureMode === "decide") {
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
 
-    // 위에서 아래로 내리는 동작이 가로 이동보다 1.2배 이상 크면 드래그 닫기 모드로 진입
     if (dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.2) {
       gestureMode = "drag-close";
     } else if (Math.abs(dx) > Math.abs(dy)) {
@@ -1173,7 +1185,6 @@ viewerContainer.addEventListener("touchmove", (e) => {
     }
   }
 
-  // 4. 방식 2: 드래그 연동 애니메이션 닫기 처리
   if (gestureMode === "drag-close") {
     e.preventDefault();
     const dragY = Math.max(0, dy);
@@ -1197,7 +1208,6 @@ viewerContainer.addEventListener("touchmove", (e) => {
 }, { passive: false });
 
 viewerContainer.addEventListener("touchend", (e) => {
-  // 핀치 줌 도중 한 손가락만 뗀 경우 자연스럽게 Pan 모드로 이어지도록 좌표 갱신
   if (gestureMode === "pinch") {
     if (zoomScale < 1.05) {
       resetMediaZoom(true);
@@ -1211,7 +1221,6 @@ viewerContainer.addEventListener("touchend", (e) => {
     return;
   }
 
-  // 드래그 닫기 종료 판정 (110px 이상 내려갔으면 닫기 애니메이션 완료, 아니면 복귀)
   if (gestureMode === "drag-close") {
     const dy = touchCurrentY - touchStartY;
     const activeEl = getActiveMediaElement();
@@ -1236,7 +1245,6 @@ viewerContainer.addEventListener("touchend", (e) => {
     return;
   }
 
-  // 좌우 스와이프 이전/다음 미디어 전환 판정
   if (gestureMode === "swipe-horizontal") {
     const dx = touchCurrentX - touchStartX;
     if (dx < -50) nextMedia();
