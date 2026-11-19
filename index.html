@@ -16,98 +16,8 @@
 <!-- iOS(사파리) 홈 화면 바로가기 아이콘 -->
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Font Awesome Icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-<!-- Firebase Realtime Database SDK (실시간 카테고리 동기화용) -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        brand: '#1b4396',
-        brandDark: '#122e69',
-        brandLight: '#eef3fc'
-      }
-    }
-  }
-}
-</script>
-<style>
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-body {
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.custom-scrollbar {
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-  overscroll-behavior-y: contain;
-}
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 9999px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #94a3b8;
-  border-radius: 9999px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #64748b;
-}
-.media-fit-contain {
-  object-fit: contain;
-}
-.media-fit-cover {
-  object-fit: cover;
-}
-/* 뷰어 컨테이너 터치 제스처 제어 (당겨서 새로고침 방지) */
-#viewer-container {
-  touch-action: none;
-  overscroll-behavior: none;
-}
-#viewer-image, #viewer-video {
-  transform-origin: center center;
-  will-change: transform;
-}
-
-/* 터치 기기: 좌우 이동 화살표 숨김 (스와이프 제스처만 사용) */
-@media (hover: none) and (pointer: coarse) {
-  #viewer-prev-btn, #viewer-next-btn {
-    display: none !important;
-  }
-}
-
-/* 마우스 기기: 평소에는 숨겨져 있다가 뷰어에 마우스 오버 시 표시 */
-@media (hover: hover) and (pointer: fine) {
-  #viewer-prev-btn, #viewer-next-btn {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease-in-out;
-  }
-  #viewer-modal:hover #viewer-prev-btn,
-  #viewer-modal:hover #viewer-next-btn {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-</style>
+<!-- 로컬 단일 빌드 CSS (외부 CDN 의존성 제거) -->
+<link rel="stylesheet" href="./style.css">
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen h-[100dvh] flex flex-col overflow-hidden">
 
@@ -134,10 +44,12 @@ body {
       </div>
 
       <button onclick="goHome()" id="btn-home" class="hidden px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-brand font-bold flex items-center gap-2 text-sm transition">
-        <i class="fa-solid fa-house"></i> 메인으로
+        <svg class="svg-icon" viewBox="0 0 576 512" aria-hidden="true"><path d="M575.8 255.5c0 18-15 32.1-32 32.1h-32l.7 160.2c0 2.7-.2 5.4-.5 8.1V472c0 22.1-17.9 40-40 40H456c-1.1 0-2.2 0-3.3-.1c-1.4 .1-2.8 .1-4.2 .1H416 392c-22.1 0-40-17.9-40-40V448 384c0-17.7-14.3-32-32-32H256c-17.7 0-32 14.3-32 32v64 24c0 22.1-17.9 40-40 40H160 128.1c-1.5 0-3-.1-4.5-.2c-1.2 .1-2.4 .2-3.6 .2H104c-22.1 0-40-17.9-40-40V360c0-.9 0-1.9 .1-2.8V287.6H32c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"/></svg>
+        메인으로
       </button>
       <button onclick="requestAdminAccess()" class="px-4 py-2 bg-brand hover:bg-brandDark text-white rounded-lg font-bold flex items-center gap-2 text-sm shadow transition">
-        <i class="fa-solid fa-lock text-xs"></i> 항목/미디어 관리
+        <svg class="svg-icon text-xs" viewBox="0 0 448 512" aria-hidden="true"><path d="M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z"/></svg>
+        항목/미디어 관리
       </button>
     </div>
   </div>
@@ -166,7 +78,7 @@ body {
       </div>
       <div class="flex items-center gap-2">
         <div class="flex items-center bg-gray-100 rounded-lg px-3 py-1.5 border border-gray-200">
-          <i class="fa-solid fa-arrow-down-a-z text-brand text-xs mr-2"></i>
+          <svg class="svg-icon text-brand text-xs mr-2" viewBox="0 0 512 512" aria-hidden="true"><path d="M128 32c17.7 0 32 14.3 32 32V338.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3l-96 96c-12.5 12.5-32.8 12.5-45.3 0l-96-96c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L96 338.7V64c0-17.7 14.3-32 32-32zM352 32c13.3 0 25.3 8.1 30.2 20.4l64 160c6.6 16.4-1.4 35-17.8 41.6s-35-1.4-41.6-17.8L379.5 218H324.5l-7.3 18.2c-6.6 16.4-25.2 24.4-41.6 17.8s-24.4-25.2-17.8-41.6l64-160C326.7 40.1 338.7 32 352 32zm0 94.3L342.1 154h19.8L352 126.3zM288 320c0-17.7 14.3-32 32-32h96c12.4 0 23.7 7.2 29 18.4s3.6 24.5-4.4 34.1L362.3 432H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H320c-12.4 0-23.7-7.2-29-18.4s-3.6-24.5 4.4-34.1L373.7 352H320c-17.7 0-32-14.3-32-32z"/></svg>
           <select id="gallery-sort-select" onchange="changeSortOrder(this.value)" class="bg-transparent text-xs font-bold text-gray-700 focus:outline-none cursor-pointer">
             <option value="asc">이름 오름차순 (기본)</option>
             <option value="desc">이름 내림차순</option>
@@ -174,7 +86,8 @@ body {
           </select>
         </div>
         <button onclick="goHome()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg text-sm flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-arrow-left"></i> 뒤로가기
+          <svg class="svg-icon" viewBox="0 0 448 512" aria-hidden="true"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>
+          뒤로가기
         </button>
       </div>
     </div>
@@ -183,7 +96,7 @@ body {
     </div>
 
     <div id="gallery-empty" class="hidden flex-col items-center justify-center py-20 text-center">
-      <i class="fa-regular fa-folder-open text-6xl text-gray-300 mb-3"></i>
+      <svg class="svg-icon text-6xl text-gray-300 mb-3" viewBox="0 0 576 512" aria-hidden="true"><path d="M384 480h48c11.4 0 21.9-6 27.6-15.9l112-192c5.8-9.9 5.8-22.1 .1-32.1S555.5 224 544 224H144c-11.4 0-21.9 6-27.6 15.9L48 357.1V96c0-8.8 7.2-16 16-16H181.5c4.2 0 8.3 1.7 11.3 4.7l26.5 26.5c21 21 49.5 32.8 79.2 32.8H416c8.8 0 16 7.2 16 16v32h48V160c0-35.3-28.7-64-64-64H298.5c-17 0-33.3-6.7-45.3-18.7L226.7 50.7c-12-12-28.3-18.7-45.3-18.7H64C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H87.7 384zM144 272H506.9L414.2 432H64L144 272z"/></svg>
       <p class="text-gray-500 font-medium">등록된 사진이나 동영상이 없습니다.</p>
       <button onclick="openCategoryAdminFromGallery()" class="mt-4 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-lg shadow">
         + 파일 추가하기
@@ -206,10 +119,12 @@ body {
         100%
       </button>
       <button onclick="toggleMediaFit()" title="화면 맞춤 전환" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition">
-        <i id="fit-icon" class="fa-solid fa-expand"></i>
+        <span id="fit-icon" class="flex items-center justify-center">
+          <svg class="svg-icon" viewBox="0 0 448 512" aria-hidden="true"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg>
+        </span>
       </button>
       <button onclick="closeViewer()" title="닫기" class="w-10 h-10 rounded-full bg-white/20 hover:bg-red-600 text-white flex items-center justify-center backdrop-blur-md transition">
-        <i class="fa-solid fa-xmark text-lg"></i>
+        <svg class="svg-icon text-lg" viewBox="0 0 384 512" aria-hidden="true"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
       </button>
     </div>
   </div>
@@ -220,10 +135,10 @@ body {
   </div>
 
   <button id="viewer-prev-btn" onclick="prevMedia()" class="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
-    <i class="fa-solid fa-chevron-left text-2xl"></i>
+    <svg class="svg-icon text-2xl" viewBox="0 0 320 512" aria-hidden="true"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L77.3 256 246.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z"/></svg>
   </button>
   <button id="viewer-next-btn" onclick="nextMedia()" class="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md z-20 transition border border-white/20">
-    <i class="fa-solid fa-chevron-right text-2xl"></i>
+    <svg class="svg-icon text-2xl" viewBox="0 0 320 512" aria-hidden="true"><path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z"/></svg>
   </button>
 
   <div id="viewer-footer" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-semibold z-20 transition-opacity duration-200">
@@ -236,11 +151,11 @@ body {
   <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
     <div class="px-6 py-4 bg-brand text-white flex justify-between items-center">
       <div class="flex items-center gap-2">
-        <i class="fa-solid fa-shield-halved"></i>
+        <svg class="svg-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 0c4.6 0 9.2 1 13.4 2.9L457.7 82.8c22 9.3 38.4 31 38.3 57.2c-.5 99.2-41.3 280.7-213.6 363.2c-16.7 8-36.1 8-52.8 0C57.3 420.7 16.5 239.2 16 140c-.1-26.2 16.3-47.9 38.3-57.2L242.7 2.9C246.8 1 251.4 0 256 0zm0 66.8V444.8C394 378 431.1 230.1 432 141.4L256 66.8l0 0z"/></svg>
         <h3 class="text-base font-bold">관리자 잠금 해제</h3>
       </div>
       <button onclick="closePasswordModal()" class="text-white/80 hover:text-white">
-        <i class="fa-solid fa-xmark text-lg"></i>
+        <svg class="svg-icon text-lg" viewBox="0 0 384 512" aria-hidden="true"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
       </button>
     </div>
     <form onsubmit="verifyAdminPassword(event)" class="p-6 flex flex-col gap-4">
@@ -267,18 +182,20 @@ body {
 
     <div class="px-6 py-4 bg-brand text-white flex justify-between items-center shrink-0 flex-wrap gap-2">
       <div class="flex items-center gap-2">
-        <i class="fa-solid fa-sliders text-xl"></i>
+        <svg class="svg-icon text-xl" viewBox="0 0 512 512" aria-hidden="true"><path d="M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z"/></svg>
         <h3 class="text-lg font-bold">카테고리(실시간 동기화) 및 미디어(기기 저장) 관리자</h3>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="configureSyncUrlPrompt()" class="px-3 py-1 bg-white/15 hover:bg-white/25 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-cloud"></i> 동기화 서버 설정
+          <svg class="svg-icon" viewBox="0 0 640 512" aria-hidden="true"><path d="M0 336c0 79.5 64.5 144 144 144H512c70.7 0 128-57.3 128-128c0-61.9-44-113.6-102.4-125.4c4.1-10.7 6.4-22.4 6.4-34.6c0-53-43-96-96-96c-19.7 0-38.1 6-53.3 16.2C367 64.2 315.3 32 256 32C167.6 32 96 103.6 96 192c0 2.7 .1 5.4 .2 8.1C40.2 219.8 0 273.2 0 336z"/></svg>
+          동기화 서버 설정
         </button>
         <button onclick="changeAdminPasswordPrompt()" class="px-3 py-1 bg-white/15 hover:bg-white/25 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-key"></i> 비밀번호 변경
+          <svg class="svg-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"/></svg>
+          비밀번호 변경
         </button>
         <button onclick="toggleAdminModal(false)" class="text-white/80 hover:text-white text-xl ml-1">
-          <i class="fa-solid fa-xmark"></i>
+          <svg class="svg-icon" viewBox="0 0 384 512" aria-hidden="true"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
         </button>
       </div>
     </div>
@@ -313,14 +230,14 @@ body {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 shrink-0">
           <label class="border-2 border-dashed border-gray-300 hover:border-brand rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-brandLight/30 transition text-center">
-            <i class="fa-solid fa-cloud-arrow-up text-2xl text-brand mb-1.5"></i>
+            <svg class="svg-icon text-2xl text-brand mb-1.5" viewBox="0 0 640 512" aria-hidden="true"><path d="M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z"/></svg>
             <span class="text-sm font-bold text-gray-700">사진/동영상 파일 선택</span>
             <span class="text-[11px] text-gray-400 mt-0.5">현재 기기에 개별/다중 파일 저장</span>
             <input type="file" id="media-file-input" multiple accept="image/*,video/*" class="hidden" onchange="handleFileUpload(event)">
           </label>
 
           <label class="border-2 border-dashed border-brand/40 hover:border-brand rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-brandLight/20 hover:bg-brandLight/50 transition text-center">
-            <i class="fa-solid fa-folder-plus text-2xl text-brand mb-1.5"></i>
+            <svg class="svg-icon text-2xl text-brand mb-1.5" viewBox="0 0 512 512" aria-hidden="true"><path d="M512 416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H192c20.1 0 39.1 9.5 51.2 25.6l19.2 25.6c6 8.1 15.5 12.8 25.6 12.8H448c35.3 0 64 28.7 64 64V416zM232 376c0 13.3 10.7 24 24 24s24-10.7 24-24V312h64c13.3 0 24-10.7 24-24s-10.7-24-24-24H280V200c0-13.3-10.7-24-24-24s-24 10.7-24 24v64H168c-13.3 0-24 10.7-24 24s10.7 24 24 24h64v64z"/></svg>
             <span class="text-sm font-bold text-brand">폴더 통째로 가져오기</span>
             <span class="text-[11px] text-gray-500 mt-0.5">폴더 내 미디어 이름순 일괄 등록</span>
             <input type="file" id="media-folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFileUpload(event)">
@@ -356,17 +273,37 @@ body {
 <!-- JAVASCRIPT LOGIC -->
 <script>
 // ============================================================================
-// [실시간 동기화 설정] Firebase Realtime Database URL
+// [인라인 SVG 아이콘 템플릿] 동적 UI 렌더링용 (Font Awesome 의존성 제거)
+// ============================================================================
+const SVG_ICONS = {
+  expand: `<svg class="svg-icon" viewBox="0 0 448 512" aria-hidden="true"><path d="M32 32C14.3 32 0 46.3 0 64v96c0 17.7 14.3 32 32 32s32-14.3 32-32V96h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H64V352zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64v64c0 17.7 14.3 32 32 32s32-14.3 32-32V64c0-17.7-14.3-32-32-32H320zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V352z"/></svg>`,
+  compress: `<svg class="svg-icon" viewBox="0 0 448 512" aria-hidden="true"><path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v64H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32V64zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32H96v64c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32H32zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7 14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V64zM320 320c-17.7 0-32 14.3-32 32v96c0 17.7 14.3 32 32 32s32-14.3 32-32V384h64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320z"/></svg>`,
+  zoomIn: `<svg class="svg-icon text-2xl" viewBox="0 0 512 512" aria-hidden="true"><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM184 296c0 13.3 10.7 24 24 24s24-10.7 24-24V232h64c13.3 0 24-10.7 24-24s-10.7-24-24-24H232V120c0-13.3-10.7-24-24-24s-24 10.7-24 24v64H120c-13.3 0-24 10.7-24 24s10.7 24 24 24h64v64z"/></svg>`,
+  circlePlay: `<svg class="svg-icon text-4xl group-hover:scale-110 transition" viewBox="0 0 512 512" aria-hidden="true"><path d="M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM188.3 147.1c-7.6 4.2-12.3 12.3-12.3 20.9V344c0 8.7 4.7 16.7 12.3 20.9s16.8 4.1 24.3-.5l144-88c7.1-4.4 11.5-12.1 11.5-20.5s-4.4-16.1-11.5-20.5l-144-88c-7.4-4.5-16.7-4.7-24.3-.5z"/></svg>`,
+  chevronUp: `<svg class="svg-icon text-[10px]" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 105.4c12.5-12.5 32.8-12.5 45.3 0l192 192c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L256 173.3 86.6 342.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l192-192z"/></svg>`,
+  chevronDown: `<svg class="svg-icon text-[10px]" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>`,
+  xmark: `<svg class="svg-icon" viewBox="0 0 384 512" aria-hidden="true"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>`
+};
+
+// ============================================================================
+// [실시간 동기화 설정] Firebase Realtime Database 비동기 동적 로드
 // ============================================================================
 const FIREBASE_CONFIG = {
   databaseURL: "https://jtech-m-default-rtdb.firebaseio.com"
 };
+
+const FIREBASE_SDK_URLS = [
+  "https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"
+];
 
 const SYNC_URL_STORAGE_KEY = "jtech_firebase_db_url";
 let rtdb = null;
 let categoriesRef = null;
 let adminPwRef = null;
 let isRealtimeConnected = false;
+let firebaseSdkPromise = null;
+let isFirebaseInitialized = false;
 
 function getEffectiveDatabaseUrl() {
   const savedUrl = localStorage.getItem(SYNC_URL_STORAGE_KEY);
@@ -377,6 +314,119 @@ function getEffectiveDatabaseUrl() {
     return FIREBASE_CONFIG.databaseURL.trim();
   }
   return null;
+}
+
+function loadExternalScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load " + src)), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => {
+      script.remove();
+      reject(new Error("Failed to load " + src));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function loadFirebaseSdkAsync() {
+  if (typeof firebase !== "undefined" && typeof firebase.database === "function") {
+    return true;
+  }
+  if (!navigator.onLine) {
+    return false;
+  }
+  if (!firebaseSdkPromise) {
+    firebaseSdkPromise = (async () => {
+      for (const url of FIREBASE_SDK_URLS) {
+        await loadExternalScript(url);
+      }
+      return true;
+    })().catch((err) => {
+      console.warn("Firebase SDK 비동기 로드 실패 (오프라인 로컬 모드 유지):", err);
+      firebaseSdkPromise = null;
+      return false;
+    });
+  }
+  return firebaseSdkPromise;
+}
+
+async function initFirebaseSync(fallbackInitialCats) {
+  if (isFirebaseInitialized) return;
+  const dbUrl = getEffectiveDatabaseUrl();
+  if (!dbUrl || !navigator.onLine) {
+    updateSyncStatusUI("idle");
+    return;
+  }
+
+  const sdkReady = await loadFirebaseSdkAsync();
+  if (!sdkReady || typeof firebase === "undefined") {
+    updateSyncStatusUI("idle");
+    return;
+  }
+
+  try {
+    isFirebaseInitialized = true;
+    if (!firebase.apps.length) {
+      firebase.initializeApp({ databaseURL: dbUrl });
+    }
+    rtdb = firebase.database();
+    categoriesRef = rtdb.ref("jtech_categories");
+    adminPwRef = rtdb.ref("jtech_config/adminPassword");
+
+    rtdb.ref(".info/connected").on("value", (snap) => {
+      isRealtimeConnected = (snap.val() === true);
+      updateSyncStatusUI("idle");
+    });
+
+    adminPwRef.on("value", (snap) => {
+      const serverPw = snap.val();
+      if (serverPw) {
+        cachedAdminPassword = String(serverPw);
+        localStorage.setItem(ADMIN_PW_KEY, cachedAdminPassword);
+      }
+    });
+
+    categoriesRef.on("value", async (snapshot) => {
+      const prevLocalCats = await getLocalCategoriesFromDB();
+      const serverData = snapshot.val();
+
+      if (!serverData) {
+        const seedSource = (prevLocalCats && prevLocalCats.length > 0) ? prevLocalCats : fallbackInitialCats;
+        const seedCats = seedSource.map((c, idx) => ({
+          id: c.id.startsWith("cat_fixed_") ? c.id : "cat_fixed_" + idx,
+          name: c.name,
+          order: idx
+        }));
+        await categoriesRef.set(seedCats);
+        await applyCategoriesAndRender(seedCats, prevLocalCats);
+      } else {
+        const serverList = Array.isArray(serverData)
+          ? serverData.filter(Boolean)
+          : Object.values(serverData).filter(Boolean);
+        await applyCategoriesAndRender(serverList, prevLocalCats);
+      }
+    });
+  } catch (err) {
+    isFirebaseInitialized = false;
+    console.error("실시간 DB 초기화 실패 (로컬 모드로 작동):", err);
+    updateSyncStatusUI("idle");
+  }
 }
 
 // 서비스 워커 등록 및 새 버전 감지 시 자동 새로고침
@@ -513,8 +563,17 @@ function updateSyncStatusUI(state) {
   }
 }
 
-window.addEventListener("online", () => updateSyncStatusUI("idle"));
-window.addEventListener("offline", () => updateSyncStatusUI("idle"));
+window.addEventListener("online", () => {
+  updateSyncStatusUI("idle");
+  if (!isFirebaseInitialized && db) {
+    initFirebaseSync(categories);
+  }
+});
+
+window.addEventListener("offline", () => {
+  isRealtimeConnected = false;
+  updateSyncStatusUI("idle");
+});
 
 const DEFAULT_CATEGORIES = [
   "JTECH", "시험성적서", "보양작업", "시공완료", "하자보수",
@@ -733,7 +792,6 @@ async function loadDataFromDB() {
   await initDB();
 
   const localCats = await getLocalCategoriesFromDB();
-  const dbUrl = getEffectiveDatabaseUrl();
 
   let initialCats = localCats;
   if (!initialCats || initialCats.length === 0) {
@@ -743,56 +801,12 @@ async function loadDataFromDB() {
       order: index
     }));
   }
+
+  // 1. 기기 내부 데이터(IndexedDB)로 즉시 UI 렌더링
   await applyCategoriesAndRender(initialCats, []);
 
-  if (dbUrl && typeof firebase !== "undefined") {
-    try {
-      if (!firebase.apps.length) {
-        firebase.initializeApp({ databaseURL: dbUrl });
-      }
-      rtdb = firebase.database();
-      categoriesRef = rtdb.ref("jtech_categories");
-      adminPwRef = rtdb.ref("jtech_config/adminPassword");
-
-      rtdb.ref(".info/connected").on("value", (snap) => {
-        isRealtimeConnected = (snap.val() === true);
-        updateSyncStatusUI("idle");
-      });
-
-      adminPwRef.on("value", (snap) => {
-        const serverPw = snap.val();
-        if (serverPw) {
-          cachedAdminPassword = String(serverPw);
-          localStorage.setItem(ADMIN_PW_KEY, cachedAdminPassword);
-        }
-      });
-
-      categoriesRef.on("value", async (snapshot) => {
-        const prevLocalCats = await getLocalCategoriesFromDB();
-        const serverData = snapshot.val();
-
-        if (!serverData) {
-          const seedCats = (prevLocalCats && prevLocalCats.length > 0 ? prevLocalCats : initialCats).map((c, idx) => ({
-            id: c.id.startsWith("cat_fixed_") ? c.id : "cat_fixed_" + idx,
-            name: c.name,
-            order: idx
-          }));
-          await categoriesRef.set(seedCats);
-          await applyCategoriesAndRender(seedCats, prevLocalCats);
-        } else {
-          const serverList = Array.isArray(serverData)
-            ? serverData.filter(Boolean)
-            : Object.values(serverData).filter(Boolean);
-          await applyCategoriesAndRender(serverList, prevLocalCats);
-        }
-      });
-    } catch (err) {
-      console.error("실시간 DB 초기화 실패 (로컬 모드로 작동):", err);
-      updateSyncStatusUI("idle");
-    }
-  } else {
-    updateSyncStatusUI("idle");
-  }
+  // 2. 화면 표시 후 백그라운드에서 Firebase SDK 비동기 연결 시도
+  initFirebaseSync(initialCats);
 }
 
 // 상단 카테고리 칩 버튼
@@ -884,7 +898,7 @@ function openCategory(catId) {
         card.innerHTML = `
           <img src="${item.dataUrl}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="${item.name}">
           <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
-            <i class="fa-solid fa-magnifying-glass-plus text-2xl"></i>
+            ${SVG_ICONS.zoomIn}
           </div>
           <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2">
             <p class="text-[11px] text-white font-medium truncate">${item.name}</p>
@@ -894,7 +908,7 @@ function openCategory(catId) {
         card.innerHTML = `
           <video src="${item.dataUrl}" class="w-full h-full object-cover"></video>
           <div class="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-            <i class="fa-solid fa-circle-play text-4xl group-hover:scale-110 transition"></i>
+            ${SVG_ICONS.circlePlay}
           </div>
           <span class="absolute top-2 left-2 text-[10px] bg-black/70 text-white px-2 py-0.5 rounded-full font-bold">동영상</span>
           <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2">
@@ -944,7 +958,6 @@ function getActiveMediaElement() {
 function setViewerOverlayOpacity(opacity) {
   const header = document.getElementById("viewer-header");
   const footer = document.getElementById("viewer-footer");
-  // 화살표 버튼의 마우스 hover 제어와 충돌하지 않도록 상/하단 바만 투명도 제어
   [header, footer].forEach(el => {
     if (el) el.style.opacity = String(opacity);
   });
@@ -1078,10 +1091,8 @@ function prevMedia() {
 function toggleMediaFit() {
   isFitContain = !isFitContain;
   const fitIcon = document.getElementById("fit-icon");
-  if (isFitContain) {
-    fitIcon.className = "fa-solid fa-expand";
-  } else {
-    fitIcon.className = "fa-solid fa-compress";
+  if (fitIcon) {
+    fitIcon.innerHTML = isFitContain ? SVG_ICONS.expand : SVG_ICONS.compress;
   }
   updateViewerContent();
 }
@@ -1316,7 +1327,7 @@ function renderAdminCategories() {
           ? 'hover:bg-white/20 text-white'
           : 'hover:bg-gray-300 text-gray-600'
     }`;
-    upBtn.innerHTML = `<i class="fa-solid fa-chevron-up text-[10px]"></i>`;
+    upBtn.innerHTML = SVG_ICONS.chevronUp;
     upBtn.onclick = (e) => moveCategoryOrder(idx, -1, e);
 
     const downBtn = document.createElement("button");
@@ -1330,7 +1341,7 @@ function renderAdminCategories() {
           ? 'hover:bg-white/20 text-white'
           : 'hover:bg-gray-300 text-gray-600'
     }`;
-    downBtn.innerHTML = `<i class="fa-solid fa-chevron-down text-[10px]"></i>`;
+    downBtn.innerHTML = SVG_ICONS.chevronDown;
     downBtn.onclick = (e) => moveCategoryOrder(idx, 1, e);
 
     orderControls.appendChild(upBtn);
@@ -1404,7 +1415,7 @@ function renderAdminMediaGrid() {
 
     const delBtn = document.createElement("button");
     delBtn.className = "absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow";
-    delBtn.innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+    delBtn.innerHTML = SVG_ICONS.xmark;
     delBtn.onclick = async (e) => {
       e.stopPropagation();
       await deleteMediaItemFromDB(item.id);
