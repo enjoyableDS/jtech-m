@@ -228,7 +228,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 shrink-0">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 shrink-0">
           <label class="border-2 border-dashed border-gray-300 hover:border-brand rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-brandLight/30 transition text-center">
             <svg class="svg-icon text-2xl text-brand mb-1.5" viewBox="0 0 640 512" aria-hidden="true"><path d="M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z"/></svg>
             <span class="text-sm font-bold text-gray-700">사진/동영상 파일 선택</span>
@@ -242,6 +242,12 @@
             <span class="text-[11px] text-gray-500 mt-0.5">폴더 내 미디어 이름순 일괄 등록</span>
             <input type="file" id="media-folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFileUpload(event)">
           </label>
+        </div>
+
+        <!-- 업로드 및 썸네일 생성 진행 표시 바 -->
+        <div id="upload-progress-box" class="hidden mb-4 px-3.5 py-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold flex items-center justify-between shrink-0">
+          <span id="upload-progress-text">파일 처리 중...</span>
+          <span id="upload-progress-count">0 / 0</span>
         </div>
 
         <div class="flex items-center justify-between mb-2 shrink-0">
@@ -262,7 +268,7 @@
     </div>
 
     <div class="px-6 py-3 bg-gray-100 border-t border-gray-200 flex justify-between items-center text-xs text-gray-500 shrink-0">
-      <span>* 카테고리는 모든 기기에 실시간 동기화되며, 사진·동영상은 각 기기 내부 저장소(IndexedDB)에 개별 유지됩니다.</span>
+      <span>* 카테고리는 모든 기기에 실시간 동기화되며, 사진·동영상은 각 기기 내부 저장소(IndexedDB v2)에 원본/썸네일 분리 저장됩니다.</span>
       <button onclick="toggleAdminModal(false)" class="px-5 py-2 bg-brand text-white font-bold rounded-lg hover:bg-brandDark transition">
         완료 및 닫기
       </button>
@@ -541,7 +547,7 @@ function updateSyncStatusUI(state) {
   if (state === "saving") {
     badge.className = "px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border bg-blue-50 text-blue-700 border-blue-200 transition-colors";
     dot.className = "w-2 h-2 rounded-full bg-blue-500 animate-ping";
-    text.innerText = "데이터 동기화 중...";
+    text.innerText = "데이터 처리 중...";
     return;
   }
 
@@ -575,18 +581,72 @@ window.addEventListener("offline", () => {
   updateSyncStatusUI("idle");
 });
 
+// ============================================================================
+// [앱 상태 및 Object URL 메모리 관리자]
+// ============================================================================
 const DEFAULT_CATEGORIES = [
   "JTECH", "시험성적서", "보양작업", "시공완료", "하자보수",
   "유색컬러시공", "구축시공", "시공후하자", "고객후기", "가격표&서비스"
 ];
 
+const THUMB_MAX_EDGE = 480;
+const THUMB_QUALITY = 0.78;
+
 let categories = [];
-let mediaStorage = {};
+let categoryCounts = {};          // { [catId]: number } - 전체 미디어를 메모리에 올리지 않고 개수만 유지
 let currentCategoryId = null;
-let currentMediaList = [];
+let currentGalleryItems = [];     // 현재 열려있는 단 1개 카테고리의 메타+썸네일 목록
+let currentMediaList = [];        // 뷰어에서 탐색 중인 정렬 목록
 let currentViewerIndex = 0;
 let isFitContain = true;
 let currentSortOrder = "asc";
+let isUploadingMedia = false;
+
+// 비동기 렌더링 레이스 컨디션 방지 토큰
+let galleryLoadToken = 0;
+let adminLoadToken = 0;
+let viewerLoadToken = 0;
+
+// Object URL 메모리 해제 관리
+let activeGalleryObjectUrls = [];
+let activeAdminObjectUrls = [];
+let activeViewerObjectUrl = null;
+
+function revokeGalleryObjectUrls() {
+  for (const url of activeGalleryObjectUrls) {
+    URL.revokeObjectURL(url);
+  }
+  activeGalleryObjectUrls = [];
+}
+
+function revokeAdminObjectUrls() {
+  for (const url of activeAdminObjectUrls) {
+    URL.revokeObjectURL(url);
+  }
+  activeAdminObjectUrls = [];
+}
+
+function revokeViewerObjectUrl() {
+  if (activeViewerObjectUrl) {
+    URL.revokeObjectURL(activeViewerObjectUrl);
+    activeViewerObjectUrl = null;
+  }
+}
+
+function getThumbSrc(item, urlBucket) {
+  if (item.thumbBlob instanceof Blob) {
+    const url = URL.createObjectURL(item.thumbBlob);
+    urlBucket.push(url);
+    return url;
+  }
+  if (item.blob instanceof Blob) {
+    const url = URL.createObjectURL(item.blob);
+    urlBucket.push(url);
+    return url;
+  }
+  // v1(Base64) 데이터 하위 호환 폴백
+  return item.dataUrl || "";
+}
 
 function sortMediaArray(items) {
   if (!items || !Array.isArray(items)) return [];
@@ -600,7 +660,7 @@ function sortMediaArray(items) {
   }
 }
 
-function changeSortOrder(order) {
+async function changeSortOrder(order) {
   currentSortOrder = order;
   const gallerySelect = document.getElementById("gallery-sort-select");
   const adminSelect = document.getElementById("admin-sort-select");
@@ -609,16 +669,19 @@ function changeSortOrder(order) {
 
   if (currentCategoryId) {
     if (!document.getElementById("view-gallery").classList.contains("hidden")) {
-      openCategory(currentCategoryId);
+      await openCategory(currentCategoryId);
     }
     if (!document.getElementById("admin-modal").classList.contains("hidden")) {
-      renderAdminMediaGrid();
+      await renderAdminMediaGrid();
     }
   }
 }
 
+// ============================================================================
+// [IndexedDB v2] media(메타+썸네일+categoryId 인덱스) + media_files(원본 Blob)
+// ============================================================================
 const DB_NAME = "JTechConsultationDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let db = null;
 
 function initDB() {
@@ -626,11 +689,26 @@ function initDB() {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = (e) => {
       const database = e.target.result;
+      const tx = e.target.transaction;
+
       if (!database.objectStoreNames.contains("categories")) {
         database.createObjectStore("categories", { keyPath: "id" });
       }
+
+      let mediaStore;
       if (!database.objectStoreNames.contains("media")) {
-        database.createObjectStore("media", { keyPath: "id" });
+        mediaStore = database.createObjectStore("media", { keyPath: "id" });
+      } else {
+        mediaStore = tx.objectStore("media");
+      }
+
+      if (!mediaStore.indexNames.contains("by_categoryId")) {
+        mediaStore.createIndex("by_categoryId", "categoryId", { unique: false });
+      }
+
+      // 원본 Blob 전용 저장소 (목록 로딩 시 대용량 바이너리를 읽지 않기 위해 분리)
+      if (!database.objectStoreNames.contains("media_files")) {
+        database.createObjectStore("media_files", { keyPath: "id" });
       }
     };
     request.onsuccess = (e) => {
@@ -651,23 +729,14 @@ function getLocalCategoriesFromDB() {
   });
 }
 
-function getAllMediaFromDB() {
-  return new Promise((resolve) => {
-    const tx = db.transaction("media", "readonly");
-    const store = tx.objectStore("media");
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => resolve([]);
-  });
-}
-
 function saveLocalCategoriesToDB(catArray) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction("categories", "readwrite");
     const store = tx.objectStore("categories");
     store.clear();
     catArray.forEach(cat => store.put(cat));
     tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
   });
 }
 
@@ -684,40 +753,119 @@ async function persistCategories() {
   updateSyncStatusUI("idle");
 }
 
-function saveMediaItem(item) {
-  updateSyncStatusUI("saving");
+// 인덱스 기반 고속 개수 조회 (실제 미디어 데이터 읽기 없음)
+function getMediaCountByCategory(catId) {
   return new Promise((resolve) => {
-    const tx = db.transaction("media", "readwrite");
-    const store = tx.objectStore("media");
-    store.put(item);
-    tx.oncomplete = () => {
-      updateSyncStatusUI("idle");
-      resolve();
-    };
+    const tx = db.transaction("media", "readonly");
+    const index = tx.objectStore("media").index("by_categoryId");
+    const req = index.count(catId);
+    req.onsuccess = () => resolve(req.result || 0);
+    req.onerror = () => resolve(0);
   });
 }
 
+async function refreshCategoryCounts() {
+  const counts = {};
+  await Promise.all(
+    categories.map(async (cat) => {
+      counts[cat.id] = await getMediaCountByCategory(cat.id);
+    })
+  );
+  categoryCounts = counts;
+}
+
+// 특정 카테고리의 메타정보 + 경량 썸네일만 부분 조회
+function getMediaMetaByCategory(catId) {
+  return new Promise((resolve) => {
+    const tx = db.transaction("media", "readonly");
+    const index = tx.objectStore("media").index("by_categoryId");
+    const req = index.getAll(catId);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
+// 뷰어에서 선택한 단 1개 항목의 원본 Blob 조회
+function getOriginalBlobById(id) {
+  return new Promise((resolve) => {
+    const tx = db.transaction("media_files", "readonly");
+    const store = tx.objectStore("media_files");
+    const req = store.get(id);
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => resolve(null);
+  });
+}
+
+// 메타+썸네일과 원본 Blob을 단일 트랜잭션으로 저장
+function saveMediaRecordV2(metaObj, originalBlob) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["media", "media_files"], "readwrite");
+    tx.objectStore("media").put(metaObj);
+    tx.objectStore("media_files").put({ id: metaObj.id, blob: originalBlob });
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
+  });
+}
+
+// 메타와 원본 Blob 동시 삭제
 function deleteMediaItemFromDB(id) {
   updateSyncStatusUI("saving");
-  return new Promise((resolve) => {
-    const tx = db.transaction("media", "readwrite");
-    const store = tx.objectStore("media");
-    store.delete(id);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["media", "media_files"], "readwrite");
+    tx.objectStore("media").delete(id);
+    tx.objectStore("media_files").delete(id);
     tx.oncomplete = () => {
       updateSyncStatusUI("idle");
       resolve();
     };
+    tx.onerror = (e) => {
+      updateSyncStatusUI("idle");
+      reject(e);
+    };
   });
 }
 
-async function migrateMediaCategoryIds(localCats, serverCats, allMedia) {
-  if (!localCats || localCats.length === 0 || !allMedia || allMedia.length === 0) return allMedia;
+// 특정 카테고리에 속한 모든 미디어 일괄 삭제 (인덱스 키 커서 사용)
+function deleteAllMediaByCategoryFromDB(catId) {
+  updateSyncStatusUI("saving");
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["media", "media_files"], "readwrite");
+    const mediaStore = tx.objectStore("media");
+    const fileStore = tx.objectStore("media_files");
+    const index = mediaStore.index("by_categoryId");
+    const cursorReq = index.openKeyCursor(IDBKeyRange.only(catId));
+
+    cursorReq.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        mediaStore.delete(cursor.primaryKey);
+        fileStore.delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+    tx.oncomplete = () => {
+      updateSyncStatusUI("idle");
+      resolve();
+    };
+    tx.onerror = (e) => {
+      updateSyncStatusUI("idle");
+      reject(e);
+    };
+  });
+}
+
+// 카테고리 ID가 서버와 달라진 경우에만 커서로 media_files를 건드리지 않고 categoryId 보정
+function migrateMediaCategoryIds(localCats, serverCats) {
+  if (!localCats || localCats.length === 0) return Promise.resolve();
+
+  const validServerIds = new Set(serverCats.map(c => c.id));
+  const hasAnyMismatch = localCats.some(c => !validServerIds.has(c.id));
+  if (!hasAnyMismatch) return Promise.resolve();
 
   const oldIdToName = {};
   localCats.forEach(c => {
     oldIdToName[c.id] = c.name;
   });
-
   DEFAULT_CATEGORIES.forEach((name, idx) => {
     oldIdToName["default_idx_" + idx] = name;
   });
@@ -727,27 +875,195 @@ async function migrateMediaCategoryIds(localCats, serverCats, allMedia) {
     nameToNewId[c.name] = c.id;
   });
 
-  const validServerIds = new Set(serverCats.map(c => c.id));
+  return new Promise((resolve) => {
+    const tx = db.transaction("media", "readwrite");
+    const store = tx.objectStore("media");
+    const cursorReq = store.openCursor();
 
-  for (let item of allMedia) {
-    if (!validServerIds.has(item.categoryId)) {
-      let matchedName = oldIdToName[item.categoryId];
-      if (!matchedName && typeof item.categoryId === "string" && item.categoryId.startsWith("cat_")) {
-        const parts = item.categoryId.split("_");
-        const lastIdx = parseInt(parts[parts.length - 1], 10);
-        if (!isNaN(lastIdx) && DEFAULT_CATEGORIES[lastIdx]) {
-          matchedName = DEFAULT_CATEGORIES[lastIdx];
+    cursorReq.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (!cursor) return;
+      const item = cursor.value;
+
+      if (!validServerIds.has(item.categoryId)) {
+        let matchedName = oldIdToName[item.categoryId];
+        if (!matchedName && typeof item.categoryId === "string" && item.categoryId.startsWith("cat_")) {
+          const parts = item.categoryId.split("_");
+          const lastIdx = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(lastIdx) && DEFAULT_CATEGORIES[lastIdx]) {
+            matchedName = DEFAULT_CATEGORIES[lastIdx];
+          }
+        }
+        if (matchedName && nameToNewId[matchedName]) {
+          item.categoryId = nameToNewId[matchedName];
+          cursor.update(item);
         }
       }
-      if (matchedName && nameToNewId[matchedName]) {
-        item.categoryId = nameToNewId[matchedName];
-        await saveMediaItem(item);
-      }
-    }
-  }
-  return allMedia;
+      cursor.continue();
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+  });
 }
 
+// ============================================================================
+// [자동 썸네일 생성기] 사진(Canvas 축소) + 동영상(프레임 캡처) -> WebP/JPEG Blob
+// ============================================================================
+let preferredThumbMimeType = null;
+
+function getThumbMimeType() {
+  if (preferredThumbMimeType) return preferredThumbMimeType;
+  try {
+    const testCanvas = document.createElement("canvas");
+    testCanvas.width = 2;
+    testCanvas.height = 2;
+    const dataUrl = testCanvas.toDataURL("image/webp");
+    preferredThumbMimeType = dataUrl.startsWith("data:image/webp") ? "image/webp" : "image/jpeg";
+  } catch {
+    preferredThumbMimeType = "image/jpeg";
+  }
+  return preferredThumbMimeType;
+}
+
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        canvas.toBlob((fallback) => resolve(fallback || null), "image/jpeg", quality);
+      }
+    }, mimeType, quality);
+  });
+}
+
+async function generateImageThumbnail(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = objectUrl;
+    });
+
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+    if (!srcW || !srcH) return null;
+
+    const longEdge = Math.max(srcW, srcH);
+    const scale = longEdge > THUMB_MAX_EDGE ? THUMB_MAX_EDGE / longEdge : 1;
+    const dstW = Math.max(1, Math.round(srcW * scale));
+    const dstH = Math.max(1, Math.round(srcH * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = dstW;
+    canvas.height = dstH;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, dstW, dstH);
+
+    return await canvasToBlob(canvas, getThumbMimeType(), THUMB_QUALITY);
+  } catch (err) {
+    console.warn("이미지 썸네일 생성 실패:", file.name, err);
+    return null;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function generateVideoThumbnail(file) {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+
+  try {
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error("동영상 썸네일 추출 시간 초과"));
+        }
+      }, 4500);
+
+      const finish = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve();
+        }
+      };
+
+      const fail = (err) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        }
+      };
+
+      video.onloadeddata = () => {
+        // 검은 첫 프레임을 피하기 위해 0.2초 지점으로 이동 시도
+        if (isFinite(video.duration) && video.duration > 0.3) {
+          try {
+            video.currentTime = Math.min(0.2, video.duration * 0.1);
+          } catch {
+            finish();
+          }
+        } else {
+          finish();
+        }
+      };
+      video.onseeked = finish;
+      video.onerror = () => fail(new Error("동영상 디코딩 불가"));
+      video.src = objectUrl;
+      video.load();
+    });
+
+    const srcW = video.videoWidth;
+    const srcH = video.videoHeight;
+    if (!srcW || !srcH) return null;
+
+    const longEdge = Math.max(srcW, srcH);
+    const scale = longEdge > THUMB_MAX_EDGE ? THUMB_MAX_EDGE / longEdge : 1;
+    const dstW = Math.max(1, Math.round(srcW * scale));
+    const dstH = Math.max(1, Math.round(srcH * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = dstW;
+    canvas.height = dstH;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, dstW, dstH);
+
+    return await canvasToBlob(canvas, getThumbMimeType(), THUMB_QUALITY);
+  } catch (err) {
+    console.warn("동영상 썸네일 생성 건너뜀:", file.name, err);
+    return null;
+  } finally {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function generateThumbnailBlob(file) {
+  if (file.type.startsWith("image/")) {
+    return await generateImageThumbnail(file);
+  }
+  if (file.type.startsWith("video/")) {
+    return await generateVideoThumbnail(file);
+  }
+  return null;
+}
+
+// ============================================================================
+// [카테고리 및 갤러리 렌더링]
+// ============================================================================
 async function applyCategoriesAndRender(newCategories, previousLocalCats) {
   categories = newCategories.map((c, idx) => ({
     id: c.id,
@@ -755,33 +1071,25 @@ async function applyCategoriesAndRender(newCategories, previousLocalCats) {
     order: typeof c.order === "number" ? c.order : idx
   })).sort((a, b) => a.order - b.order);
 
-  let allMedia = await getAllMediaFromDB();
   if (previousLocalCats && previousLocalCats.length > 0) {
-    allMedia = await migrateMediaCategoryIds(previousLocalCats, categories, allMedia);
+    await migrateMediaCategoryIds(previousLocalCats, categories);
   }
 
   await saveLocalCategoriesToDB(categories);
-
-  mediaStorage = {};
-  categories.forEach(c => mediaStorage[c.id] = []);
-  allMedia.forEach(item => {
-    if (mediaStorage[item.categoryId]) {
-      mediaStorage[item.categoryId].push(item);
-    }
-  });
+  await refreshCategoryCounts();
 
   if (currentCategoryId && !categories.some(c => c.id === currentCategoryId)) {
     currentCategoryId = categories.length > 0 ? categories[0].id : null;
   }
 
   if (!document.getElementById("view-gallery").classList.contains("hidden") && currentCategoryId) {
-    openCategory(currentCategoryId);
+    await openCategory(currentCategoryId);
   } else {
     renderCategoryGrid();
   }
 
   if (!document.getElementById("admin-modal").classList.contains("hidden")) {
-    renderAdminCategories();
+    await renderAdminCategories();
   }
 
   updateSyncStatusUI("idle");
@@ -802,14 +1110,13 @@ async function loadDataFromDB() {
     }));
   }
 
-  // 1. 기기 내부 데이터(IndexedDB)로 즉시 UI 렌더링
+  // 1. 기기 내부 데이터(IndexedDB v2)로 개수만 즉시 조회하여 UI 렌더링
   await applyCategoriesAndRender(initialCats, []);
 
   // 2. 화면 표시 후 백그라운드에서 Firebase SDK 비동기 연결 시도
   initFirebaseSync(initialCats);
 }
 
-// 상단 카테고리 칩 버튼
 function renderTopCategoryBar() {
   const topBar = document.getElementById("top-category-bar");
   topBar.innerHTML = "";
@@ -818,42 +1125,52 @@ function renderTopCategoryBar() {
     const isSelected = currentCategoryId === cat.id;
     const btn = document.createElement("button");
     btn.className = `whitespace-nowrap px-3.5 py-2 rounded-xl text-[13px] sm:text-[14.5px] font-extrabold transition flex items-center gap-1.5 shrink-0 ${
-      isSelected 
-        ? 'bg-brand text-white shadow-sm scale-[1.01]' 
+      isSelected
+        ? 'bg-brand text-white shadow-sm scale-[1.01]'
         : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200/80'
     }`;
     btn.onclick = () => openCategory(cat.id);
 
-    const count = (mediaStorage[cat.id] || []).length;
-    btn.innerHTML = `
-      <span>${cat.name}</span>
-      <span class="text-[11px] px-1.5 py-0.5 rounded-full font-bold leading-none ${isSelected ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'}">${count}</span>
-    `;
+    const count = categoryCounts[cat.id] || 0;
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = cat.name;
+
+    const countSpan = document.createElement("span");
+    countSpan.className = `text-[11px] px-1.5 py-0.5 rounded-full font-bold leading-none ${isSelected ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'}`;
+    countSpan.textContent = String(count);
+
+    btn.appendChild(nameSpan);
+    btn.appendChild(countSpan);
     topBar.appendChild(btn);
   });
 }
 
 function renderCategoryGrid() {
+  revokeGalleryObjectUrls();
+  currentGalleryItems = [];
   renderTopCategoryBar();
+
   const grid = document.getElementById("category-grid");
   grid.innerHTML = "";
 
   categories.forEach(cat => {
-    const items = mediaStorage[cat.id] || [];
+    const count = categoryCounts[cat.id] || 0;
     const card = document.createElement("div");
     card.className = "group relative bg-white border-[3px] border-brand rounded-2xl aspect-square flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-brandLight/50 hover:shadow-xl transition-all duration-200 active:scale-95";
     card.onclick = () => openCategory(cat.id);
 
-    card.innerHTML = `
-      <span class="text-xl sm:text-2xl font-black text-brand text-center group-hover:scale-105 transition-transform duration-200 leading-tight">
-        ${cat.name}
-      </span>
-      ${items.length > 0 ? `
-        <span class="absolute bottom-3 right-3 text-[11px] font-bold bg-brand text-white px-2 py-0.5 rounded-full">
-          ${items.length}
-        </span>
-      ` : ''}
-    `;
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "text-xl sm:text-2xl font-black text-brand text-center group-hover:scale-105 transition-transform duration-200 leading-tight";
+    titleSpan.textContent = cat.name;
+    card.appendChild(titleSpan);
+
+    if (count > 0) {
+      const badge = document.createElement("span");
+      badge.className = "absolute bottom-3 right-3 text-[11px] font-bold bg-brand text-white px-2 py-0.5 rounded-full";
+      badge.textContent = String(count);
+      card.appendChild(badge);
+    }
+
     grid.appendChild(card);
   });
 
@@ -863,75 +1180,124 @@ function renderCategoryGrid() {
   document.getElementById("header-title").innerHTML = `<span>고객 상담 카탈로그</span>`;
 }
 
-function openCategory(catId) {
+async function openCategory(catId) {
+  const token = ++galleryLoadToken;
   currentCategoryId = catId;
   renderTopCategoryBar();
+
   const category = categories.find(c => c.id === catId);
   if (!category) return;
 
-  const rawItems = mediaStorage[catId] || [];
-  const items = sortMediaArray(rawItems);
-
   document.getElementById("current-category-name").innerText = category.name;
+  document.getElementById("header-title").textContent = category.name;
+  document.getElementById("view-categories").classList.add("hidden");
+  document.getElementById("view-gallery").classList.remove("hidden");
+  document.getElementById("btn-home").classList.remove("hidden");
+
+  // 선택한 1개 카테고리의 경량 썸네일+메타 레코드만 조회
+  const rawItems = await getMediaMetaByCategory(catId);
+  if (token !== galleryLoadToken) return;
+
+  const items = sortMediaArray(rawItems);
+  currentGalleryItems = items;
+  categoryCounts[catId] = items.length;
+  renderTopCategoryBar();
+
   document.getElementById("current-category-count").innerText = `총 ${items.length}개의 미디어 파일`;
-  document.getElementById("header-title").innerHTML = `<span class="text-brand">${category.name}</span>`;
 
   const galleryGrid = document.getElementById("gallery-grid");
   const emptyState = document.getElementById("gallery-empty");
+
+  revokeGalleryObjectUrls();
   galleryGrid.innerHTML = "";
 
   if (items.length === 0) {
     galleryGrid.classList.add("hidden");
     emptyState.classList.remove("hidden");
     emptyState.classList.add("flex");
-  } else {
-    galleryGrid.classList.remove("hidden");
-    emptyState.classList.add("hidden");
-    emptyState.classList.remove("flex");
-
-    items.forEach((item, idx) => {
-      const card = document.createElement("div");
-      card.className = "bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer aspect-square relative group";
-      card.onclick = () => openViewer(idx);
-
-      if (item.type.startsWith("image/")) {
-        card.innerHTML = `
-          <img src="${item.dataUrl}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="${item.name}">
-          <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
-            ${SVG_ICONS.zoomIn}
-          </div>
-          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-            <p class="text-[11px] text-white font-medium truncate">${item.name}</p>
-          </div>
-        `;
-      } else {
-        card.innerHTML = `
-          <video src="${item.dataUrl}" class="w-full h-full object-cover"></video>
-          <div class="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-            ${SVG_ICONS.circlePlay}
-          </div>
-          <span class="absolute top-2 left-2 text-[10px] bg-black/70 text-white px-2 py-0.5 rounded-full font-bold">동영상</span>
-          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-            <p class="text-[11px] text-white font-medium truncate">${item.name}</p>
-          </div>
-        `;
-      }
-      galleryGrid.appendChild(card);
-    });
+    return;
   }
 
-  document.getElementById("view-categories").classList.add("hidden");
-  document.getElementById("view-gallery").classList.remove("hidden");
-  document.getElementById("btn-home").classList.remove("hidden");
+  galleryGrid.classList.remove("hidden");
+  emptyState.classList.add("hidden");
+  emptyState.classList.remove("flex");
+
+  const fragment = document.createDocumentFragment();
+
+  items.forEach((item, idx) => {
+    const card = document.createElement("div");
+    card.className = "bg-black border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer aspect-square relative group";
+    card.onclick = () => openViewer(idx);
+
+    const isImage = item.type && item.type.startsWith("image/");
+    const thumbSrc = getThumbSrc(item, activeGalleryObjectUrls);
+
+    if (isImage) {
+      const img = document.createElement("img");
+      img.src = thumbSrc;
+      img.alt = item.name || "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.className = "w-full h-full object-cover group-hover:scale-105 transition duration-300";
+      card.appendChild(img);
+
+      const hoverOverlay = document.createElement("div");
+      hoverOverlay.className = "absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white";
+      hoverOverlay.innerHTML = SVG_ICONS.zoomIn;
+      card.appendChild(hoverOverlay);
+    } else {
+      // 동영상: 목록에서 무거운 <video> 대신 추출된 정지 썸네일 <img>만 표시
+      if (item.thumbBlob instanceof Blob) {
+        const thumbImg = document.createElement("img");
+        thumbImg.src = thumbSrc;
+        thumbImg.alt = item.name || "";
+        thumbImg.loading = "lazy";
+        thumbImg.decoding = "async";
+        thumbImg.className = "w-full h-full object-cover group-hover:scale-105 transition duration-300";
+        card.appendChild(thumbImg);
+      } else if (item.dataUrl) {
+        // 기존 v1(Base64) 동영상 호환 폴백 (메타데이터 프리로드 비활성화)
+        const legacyVideo = document.createElement("video");
+        legacyVideo.src = item.dataUrl;
+        legacyVideo.preload = "metadata";
+        legacyVideo.muted = true;
+        legacyVideo.className = "w-full h-full object-cover";
+        card.appendChild(legacyVideo);
+      }
+
+      const playOverlay = document.createElement("div");
+      playOverlay.className = "absolute inset-0 bg-black/40 flex items-center justify-center text-white";
+      playOverlay.innerHTML = SVG_ICONS.circlePlay;
+      card.appendChild(playOverlay);
+
+      const badge = document.createElement("span");
+      badge.className = "absolute top-2 left-2 text-[10px] bg-black/70 text-white px-2 py-0.5 rounded-full font-bold";
+      badge.textContent = "동영상";
+      card.appendChild(badge);
+    }
+
+    const captionWrap = document.createElement("div");
+    captionWrap.className = "absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2";
+    const caption = document.createElement("p");
+    caption.className = "text-[11px] text-white font-medium truncate";
+    caption.textContent = item.name || "";
+    captionWrap.appendChild(caption);
+    card.appendChild(captionWrap);
+
+    fragment.appendChild(card);
+  });
+
+  galleryGrid.appendChild(fragment);
 }
 
 function goHome() {
+  galleryLoadToken++;
   currentCategoryId = null;
   renderCategoryGrid();
 }
 
 // ============================================================================
-// [전체화면 미디어 뷰어: 핀치 줌 + 더블탭 줌 + 드래그 애니메이션 닫기]
+// [전체화면 미디어 뷰어: 단건 원본 지연 로드 + 핀치/더블탭/드래그 닫기]
 // ============================================================================
 let zoomScale = 1;
 let panX = 0;
@@ -940,7 +1306,7 @@ let startPanX = 0;
 let startPanY = 0;
 let initialPinchDistance = null;
 let initialZoomScale = 1;
-let gestureMode = null; // 'pinch' | 'pan' | 'decide' | 'drag-close' | 'swipe-horizontal'
+let gestureMode = null;
 let touchStartX = 0;
 let touchStartY = 0;
 let touchCurrentX = 0;
@@ -1026,52 +1392,92 @@ function getTouchDistance(t1, t2) {
   return Math.hypot(dx, dy);
 }
 
-function openViewer(index) {
-  if (!currentCategoryId) return;
-  currentMediaList = sortMediaArray(mediaStorage[currentCategoryId] || []);
-  if (currentMediaList.length === 0) return;
-
+async function openViewer(index) {
+  if (!currentCategoryId || currentGalleryItems.length === 0) return;
+  currentMediaList = [...currentGalleryItems];
   currentViewerIndex = index;
+
   const modal = document.getElementById("viewer-modal");
   modal.classList.remove("hidden");
 
   resetMediaZoom(false);
-  updateViewerContent();
+  await updateViewerContent();
 }
 
-function updateViewerContent() {
+function applyViewerFitClass() {
+  const imgEl = document.getElementById("viewer-image");
+  const videoEl = document.getElementById("viewer-video");
+  const isImgHidden = imgEl.classList.contains("hidden");
+  const isVidHidden = videoEl.classList.contains("hidden");
+
+  imgEl.className = `w-full h-full ${isFitContain ? 'media-fit-contain' : 'media-fit-cover'}${isImgHidden ? ' hidden' : ''}`;
+  videoEl.className = `w-full h-full ${isFitContain ? 'media-fit-contain' : 'media-fit-cover'}${isVidHidden ? ' hidden' : ''}`;
+}
+
+async function updateViewerContent() {
+  const token = ++viewerLoadToken;
   resetMediaZoom(false);
 
   const item = currentMediaList[currentViewerIndex];
-  const category = categories.find(c => c.id === currentCategoryId);
+  if (!item) return;
 
+  const category = categories.find(c => c.id === currentCategoryId);
   document.getElementById("viewer-category-tag").innerText = category ? category.name : "";
-  document.getElementById("viewer-title").innerText = item.name;
+  document.getElementById("viewer-title").innerText = item.name || "";
   document.getElementById("viewer-index").innerText = currentViewerIndex + 1;
   document.getElementById("viewer-total").innerText = currentMediaList.length;
 
   const imgEl = document.getElementById("viewer-image");
   const videoEl = document.getElementById("viewer-video");
 
-  imgEl.className = `w-full h-full ${isFitContain ? 'media-fit-contain' : 'media-fit-cover'}`;
-  videoEl.className = `w-full h-full ${isFitContain ? 'media-fit-contain' : 'media-fit-cover'}`;
+  // 기존 재생 중이던 동영상 및 Object URL 즉시 정리
+  videoEl.pause();
+  videoEl.removeAttribute("src");
+  videoEl.load();
+  revokeViewerObjectUrl();
 
-  if (item.type.startsWith("image/")) {
-    videoEl.pause();
+  // 단 1개 항목의 원본 Blob만 IndexedDB media_files에서 조회
+  let originalBlob = await getOriginalBlobById(item.id);
+  if (token !== viewerLoadToken) return;
+
+  let mediaSrc = "";
+  if (originalBlob instanceof Blob) {
+    activeViewerObjectUrl = URL.createObjectURL(originalBlob);
+    mediaSrc = activeViewerObjectUrl;
+  } else if (item.blob instanceof Blob) {
+    activeViewerObjectUrl = URL.createObjectURL(item.blob);
+    mediaSrc = activeViewerObjectUrl;
+  } else if (item.dataUrl) {
+    // v1(Base64) 데이터 하위 호환
+    mediaSrc = item.dataUrl;
+  } else if (item.thumbBlob instanceof Blob) {
+    activeViewerObjectUrl = URL.createObjectURL(item.thumbBlob);
+    mediaSrc = activeViewerObjectUrl;
+  }
+
+  if (item.type && item.type.startsWith("image/")) {
     videoEl.classList.add("hidden");
-    imgEl.src = item.dataUrl;
+    imgEl.src = mediaSrc;
     imgEl.classList.remove("hidden");
   } else {
     imgEl.classList.add("hidden");
-    videoEl.src = item.dataUrl;
+    imgEl.removeAttribute("src");
+    videoEl.src = mediaSrc;
     videoEl.classList.remove("hidden");
     videoEl.play().catch(() => {});
   }
+  applyViewerFitClass();
 }
 
 function closeViewer() {
+  viewerLoadToken++;
+  const imgEl = document.getElementById("viewer-image");
   const videoEl = document.getElementById("viewer-video");
   videoEl.pause();
+  videoEl.removeAttribute("src");
+  videoEl.load();
+  imgEl.removeAttribute("src");
+  revokeViewerObjectUrl();
   resetMediaZoom(false);
   document.getElementById("viewer-modal").classList.add("hidden");
 }
@@ -1094,7 +1500,8 @@ function toggleMediaFit() {
   if (fitIcon) {
     fitIcon.innerHTML = isFitContain ? SVG_ICONS.expand : SVG_ICONS.compress;
   }
-  updateViewerContent();
+  resetMediaZoom(false);
+  applyViewerFitClass();
 }
 
 const viewerContainer = document.getElementById("viewer-container");
@@ -1269,22 +1676,32 @@ viewerContainer.addEventListener("touchend", (e) => {
   }
 }, false);
 
-function toggleAdminModal(show) {
+// ============================================================================
+// [관리자 모달 및 Blob/썸네일 업로드 처리]
+// ============================================================================
+async function toggleAdminModal(show) {
+  if (!show && isUploadingMedia) {
+    alert("파일 저장 및 썸네일 생성이 진행 중입니다. 완료 후 닫아주세요.");
+    return;
+  }
+
   const modal = document.getElementById("admin-modal");
   if (show) {
-    renderAdminCategories();
     modal.classList.remove("hidden");
+    await renderAdminCategories();
   } else {
+    adminLoadToken++;
+    revokeAdminObjectUrls();
     modal.classList.add("hidden");
     if (currentCategoryId) {
-      openCategory(currentCategoryId);
+      await openCategory(currentCategoryId);
     } else {
       renderCategoryGrid();
     }
   }
 }
 
-function renderAdminCategories() {
+async function renderAdminCategories() {
   const catList = document.getElementById("admin-category-list");
   document.getElementById("cat-count").innerText = categories.length;
   catList.innerHTML = "";
@@ -1306,12 +1723,17 @@ function renderAdminCategories() {
 
     const leftPart = document.createElement("div");
     leftPart.className = "flex items-center gap-1.5 min-w-0 flex-1";
-    leftPart.innerHTML = `
-      <span class="truncate">${cat.name}</span>
-      <span class="text-[10px] shrink-0 opacity-80 ${isSelected ? 'bg-white/20 text-white' : 'bg-black/10 text-gray-700'} px-1.5 py-0.5 rounded">
-        ${(mediaStorage[cat.id] || []).length}개
-      </span>
-    `;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "truncate";
+    nameSpan.textContent = cat.name;
+
+    const countBadge = document.createElement("span");
+    countBadge.className = `text-[10px] shrink-0 opacity-80 ${isSelected ? 'bg-white/20 text-white' : 'bg-black/10 text-gray-700'} px-1.5 py-0.5 rounded`;
+    countBadge.textContent = `${categoryCounts[cat.id] || 0}개`;
+
+    leftPart.appendChild(nameSpan);
+    leftPart.appendChild(countBadge);
 
     const orderControls = document.createElement("div");
     orderControls.className = "flex items-center gap-1 shrink-0";
@@ -1352,7 +1774,7 @@ function renderAdminCategories() {
     catList.appendChild(row);
   });
 
-  renderAdminMediaGrid();
+  await renderAdminMediaGrid();
 }
 
 async function moveCategoryOrder(index, direction, event) {
@@ -1369,78 +1791,115 @@ async function moveCategoryOrder(index, direction, event) {
   });
 
   await persistCategories();
-  renderAdminCategories();
+  await renderAdminCategories();
   renderTopCategoryBar();
 }
 
-function selectAdminCategory(catId) {
+async function selectAdminCategory(catId) {
+  if (isUploadingMedia) return;
   currentCategoryId = catId;
-  renderAdminCategories();
+  await renderAdminCategories();
 }
 
-function renderAdminMediaGrid() {
+async function renderAdminMediaGrid() {
+  const token = ++adminLoadToken;
   const category = categories.find(c => c.id === currentCategoryId);
   const titleEl = document.getElementById("admin-selected-cat-title");
   const grid = document.getElementById("admin-media-grid");
 
   if (!category) {
     titleEl.innerText = "카테고리를 선택하세요";
+    revokeAdminObjectUrls();
     grid.innerHTML = "";
     return;
   }
 
   titleEl.innerText = category.name;
-  const items = sortMediaArray(mediaStorage[currentCategoryId] || []);
+  const rawItems = await getMediaMetaByCategory(currentCategoryId);
+  if (token !== adminLoadToken) return;
+
+  const items = sortMediaArray(rawItems);
+  revokeAdminObjectUrls();
   grid.innerHTML = "";
+
+  const fragment = document.createDocumentFragment();
 
   items.forEach(item => {
     const itemCard = document.createElement("div");
     itemCard.className = "relative aspect-square border border-gray-200 rounded-lg overflow-hidden group bg-black";
 
-    if (item.type.startsWith("image/")) {
-      itemCard.innerHTML = `
-        <img src="${item.dataUrl}" class="w-full h-full object-cover">
-        <div class="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1">
-          <p class="text-[10px] text-white truncate">${item.name}</p>
-        </div>
-      `;
-    } else {
-      itemCard.innerHTML = `
-        <video src="${item.dataUrl}" class="w-full h-full object-cover"></video>
-        <div class="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1">
-          <p class="text-[10px] text-white truncate">${item.name}</p>
-        </div>
-      `;
+    const isImage = item.type && item.type.startsWith("image/");
+    const thumbSrc = getThumbSrc(item, activeAdminObjectUrls);
+
+    if (isImage || item.thumbBlob instanceof Blob) {
+      const img = document.createElement("img");
+      img.src = thumbSrc;
+      img.alt = item.name || "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.className = "w-full h-full object-cover";
+      itemCard.appendChild(img);
+    } else if (item.dataUrl) {
+      const legacyVideo = document.createElement("video");
+      legacyVideo.src = item.dataUrl;
+      legacyVideo.preload = "metadata";
+      legacyVideo.muted = true;
+      legacyVideo.className = "w-full h-full object-cover";
+      itemCard.appendChild(legacyVideo);
     }
+
+    if (!isImage) {
+      const badge = document.createElement("span");
+      badge.className = "absolute top-1 left-2 text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded font-bold";
+      badge.textContent = "동영상";
+      itemCard.appendChild(badge);
+    }
+
+    const nameBar = document.createElement("div");
+    nameBar.className = "absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1";
+    const nameText = document.createElement("p");
+    nameText.className = "text-[10px] text-white truncate";
+    nameText.textContent = item.name || "";
+    nameBar.appendChild(nameText);
+    itemCard.appendChild(nameBar);
 
     const delBtn = document.createElement("button");
     delBtn.className = "absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow";
     delBtn.innerHTML = SVG_ICONS.xmark;
     delBtn.onclick = async (e) => {
       e.stopPropagation();
+      if (isUploadingMedia) return;
       await deleteMediaItemFromDB(item.id);
-      mediaStorage[currentCategoryId] = mediaStorage[currentCategoryId].filter(m => m.id !== item.id);
-      renderAdminCategories();
+      categoryCounts[currentCategoryId] = Math.max(0, (categoryCounts[currentCategoryId] || 1) - 1);
+      await renderAdminCategories();
       renderTopCategoryBar();
     };
 
     itemCard.appendChild(delBtn);
-    grid.appendChild(itemCard);
+    fragment.appendChild(itemCard);
   });
+
+  grid.appendChild(fragment);
 }
 
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
+function setUploadProgressUI(visible, text = "", current = 0, total = 0) {
+  const box = document.getElementById("upload-progress-box");
+  const textEl = document.getElementById("upload-progress-text");
+  const countEl = document.getElementById("upload-progress-count");
+  if (!box || !textEl || !countEl) return;
+
+  if (visible) {
+    box.classList.remove("hidden");
+    textEl.textContent = text;
+    countEl.textContent = `${current} / ${total}`;
+  } else {
+    box.classList.add("hidden");
+  }
 }
 
 async function handleFileUpload(event) {
   const fileList = event.target.files;
-  if (!fileList || fileList.length === 0 || !currentCategoryId) return;
+  if (!fileList || fileList.length === 0 || !currentCategoryId || isUploadingMedia) return;
 
   const validFiles = Array.from(fileList).filter(
     f => f.type && (f.type.startsWith("image/") || f.type.startsWith("video/"))
@@ -1453,26 +1912,56 @@ async function handleFileUpload(event) {
 
   validFiles.sort((a, b) => a.name.localeCompare(b.name, "ko", { numeric: true, sensitivity: "base" }));
 
+  isUploadingMedia = true;
+  updateSyncStatusUI("saving");
+  const targetCatId = currentCategoryId;
   const baseTime = Date.now();
-  for (let i = 0; i < validFiles.length; i++) {
-    const file = validFiles[i];
-    const dataUrl = await readFileAsDataURL(file);
-    const mediaObj = {
-      id: "media_" + baseTime + "_" + i + "_" + Math.random().toString(36).substr(2, 5),
-      categoryId: currentCategoryId,
-      name: file.name,
-      type: file.type,
-      dataUrl: dataUrl,
-      createdAt: baseTime + i
-    };
-    await saveMediaItem(mediaObj);
-    if (!mediaStorage[currentCategoryId]) mediaStorage[currentCategoryId] = [];
-    mediaStorage[currentCategoryId].push(mediaObj);
+  let failedCount = 0;
+
+  try {
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
+      setUploadProgressUI(true, `저장 및 썸네일 생성 중: ${file.name}`, i + 1, validFiles.length);
+
+      try {
+        // 1. 저용량 썸네일 Blob 생성
+        const thumbBlob = await generateThumbnailBlob(file);
+
+        // 2. 원본 파일 데이터를 독립 Blob으로 복사해 기기 저장소 안정성 확보
+        const buffer = await file.arrayBuffer();
+        const originalBlob = new Blob([buffer], { type: file.type || "application/octet-stream" });
+
+        const mediaId = "media_" + baseTime + "_" + i + "_" + Math.random().toString(36).slice(2, 7);
+        const metaObj = {
+          id: mediaId,
+          categoryId: targetCatId,
+          name: file.name,
+          type: file.type,
+          size: originalBlob.size,
+          thumbBlob: thumbBlob,
+          createdAt: baseTime + i
+        };
+
+        await saveMediaRecordV2(metaObj, originalBlob);
+        categoryCounts[targetCatId] = (categoryCounts[targetCatId] || 0) + 1;
+      } catch (fileErr) {
+        failedCount++;
+        console.error("파일 저장 실패:", file.name, fileErr);
+      }
+    }
+  } finally {
+    isUploadingMedia = false;
+    setUploadProgressUI(false);
+    updateSyncStatusUI("idle");
+    event.target.value = "";
   }
 
-  renderAdminCategories();
+  if (failedCount > 0) {
+    alert(`총 ${validFiles.length}개 중 ${failedCount}개 파일 저장에 실패했습니다. 기기 저장 공간 여유를 확인해 주세요.`);
+  }
+
+  await renderAdminCategories();
   renderTopCategoryBar();
-  event.target.value = "";
 }
 
 async function addNewCategoryPrompt() {
@@ -1484,10 +1973,10 @@ async function addNewCategoryPrompt() {
       order: categories.length
     };
     categories.push(newCat);
-    mediaStorage[newCat.id] = [];
+    categoryCounts[newCat.id] = 0;
     currentCategoryId = newCat.id;
     await persistCategories();
-    renderAdminCategories();
+    await renderAdminCategories();
     renderTopCategoryBar();
   }
 }
@@ -1499,26 +1988,24 @@ async function renameSelectedCategory() {
   if (newName && newName.trim()) {
     category.name = newName.trim();
     await persistCategories();
-    renderAdminCategories();
+    await renderAdminCategories();
     renderTopCategoryBar();
   }
 }
 
 async function deleteSelectedCategory() {
-  if (!currentCategoryId) return;
+  if (!currentCategoryId || isUploadingMedia) return;
   if (confirm("이 카테고리가 모든 기기에서 삭제되며, 현재 기기의 해당 미디어 파일도 함께 삭제됩니다. 계속하시겠습니까?")) {
-    const items = mediaStorage[currentCategoryId] || [];
-    for (let item of items) {
-      await deleteMediaItemFromDB(item.id);
-    }
-    delete mediaStorage[currentCategoryId];
-    categories = categories.filter(c => c.id !== currentCategoryId);
+    const targetId = currentCategoryId;
+    await deleteAllMediaByCategoryFromDB(targetId);
+    delete categoryCounts[targetId];
+    categories = categories.filter(c => c.id !== targetId);
     categories.forEach((cat, idx) => {
       cat.order = idx;
     });
     currentCategoryId = categories.length > 0 ? categories[0].id : null;
     await persistCategories();
-    renderAdminCategories();
+    await renderAdminCategories();
     renderTopCategoryBar();
   }
 }
