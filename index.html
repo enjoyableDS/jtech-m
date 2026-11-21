@@ -43,9 +43,9 @@
         <span id="sync-status-text">연결 확인 중...</span>
       </div>
 
-      <button onclick="goHome()" id="btn-home" class="hidden px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-brand font-bold flex items-center gap-2 text-sm transition">
-        <svg class="svg-icon" viewBox="0 0 576 512" aria-hidden="true"><path d="M575.8 255.5c0 18-15 32.1-32 32.1h-32l.7 160.2c0 2.7-.2 5.4-.5 8.1V472c0 22.1-17.9 40-40 40H456c-1.1 0-2.2 0-3.3-.1c-1.4 .1-2.8 .1-4.2 .1H416 392c-22.1 0-40-17.9-40-40V448 384c0-17.7-14.3-32-32-32H256c-17.7 0-32 14.3-32 32v64 24c0 22.1-17.9 40-40 40H160 128.1c-1.5 0-3-.1-4.5-.2c-1.2 .1-2.4 .2-3.6 .2H104c-22.1 0-40-17.9-40-40V360c0-.9 0-1.9 .1-2.8V287.6H32c-18 0-32-14-32-32.1c0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"/></svg>
-        메인으로
+      <button onclick="goHome()" id="btn-home" class="hidden px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold flex items-center gap-1.5 text-sm transition">
+        <svg class="svg-icon" viewBox="0 0 448 512" aria-hidden="true"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>
+        뒤로가기
       </button>
       <button onclick="requestAdminAccess()" class="px-4 py-2 bg-brand hover:bg-brandDark text-white rounded-lg font-bold flex items-center gap-2 text-sm shadow transition">
         <svg class="svg-icon text-xs" viewBox="0 0 448 512" aria-hidden="true"><path d="M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z"/></svg>
@@ -71,27 +71,6 @@
 
   <!-- 2. MEDIA GALLERY GRID VIEW -->
   <div id="view-gallery" class="hidden max-w-7xl mx-auto pb-12">
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-10">
-      <div>
-        <h2 id="current-category-name" class="text-2xl font-bold text-brand">시공전</h2>
-        <p id="current-category-count" class="text-xs text-gray-500 mt-0.5">총 0개의 미디어</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="flex items-center bg-gray-100 rounded-lg px-3 py-1.5 border border-gray-200">
-          <svg class="svg-icon text-brand text-xs mr-2" viewBox="0 0 512 512" aria-hidden="true"><path d="M128 32c17.7 0 32 14.3 32 32V338.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3l-96 96c-12.5 12.5-32.8 12.5-45.3 0l-96-96c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L96 338.7V64c0-17.7 14.3-32 32-32zM352 32c13.3 0 25.3 8.1 30.2 20.4l64 160c6.6 16.4-1.4 35-17.8 41.6s-35-1.4-41.6-17.8L379.5 218H324.5l-7.3 18.2c-6.6 16.4-25.2 24.4-41.6 17.8s-24.4-25.2-17.8-41.6l64-160C326.7 40.1 338.7 32 352 32zm0 94.3L342.1 154h19.8L352 126.3zM288 320c0-17.7 14.3-32 32-32h96c12.4 0 23.7 7.2 29 18.4s3.6 24.5-4.4 34.1L362.3 432H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H320c-12.4 0-23.7-7.2-29-18.4s-3.6-24.5 4.4-34.1L373.7 352H320c-17.7 0-32-14.3-32-32z"/></svg>
-          <select id="gallery-sort-select" onchange="changeSortOrder(this.value)" class="bg-transparent text-xs font-bold text-gray-700 focus:outline-none cursor-pointer">
-            <option value="asc">이름 오름차순 (기본)</option>
-            <option value="desc">이름 내림차순</option>
-            <option value="created">등록순</option>
-          </select>
-        </div>
-        <button onclick="goHome()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg text-sm flex items-center gap-1.5 transition">
-          <svg class="svg-icon" viewBox="0 0 448 512" aria-hidden="true"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>
-          뒤로가기
-        </button>
-      </div>
-    </div>
-
     <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-8">
     </div>
 
@@ -593,7 +572,7 @@ const THUMB_MAX_EDGE = 480;
 const THUMB_QUALITY = 0.78;
 
 let categories = [];
-let categoryCounts = {};          // { [catId]: number } - 전체 미디어를 메모리에 올리지 않고 개수만 유지
+let categoryCounts = {};          // { [catId]: number }
 let currentCategoryId = null;
 let currentGalleryItems = [];     // 현재 열려있는 단 1개 카테고리의 메타+썸네일 목록
 let currentMediaList = [];        // 뷰어에서 탐색 중인 정렬 목록
@@ -662,9 +641,7 @@ function sortMediaArray(items) {
 
 async function changeSortOrder(order) {
   currentSortOrder = order;
-  const gallerySelect = document.getElementById("gallery-sort-select");
   const adminSelect = document.getElementById("admin-sort-select");
-  if (gallerySelect) gallerySelect.value = order;
   if (adminSelect) adminSelect.value = order;
 
   if (currentCategoryId) {
@@ -1188,11 +1165,13 @@ async function openCategory(catId) {
   const category = categories.find(c => c.id === catId);
   if (!category) return;
 
-  document.getElementById("current-category-name").innerText = category.name;
   document.getElementById("header-title").textContent = category.name;
   document.getElementById("view-categories").classList.add("hidden");
   document.getElementById("view-gallery").classList.remove("hidden");
   document.getElementById("btn-home").classList.remove("hidden");
+
+  const mainEl = document.querySelector("main");
+  if (mainEl) mainEl.scrollTop = 0;
 
   // 선택한 1개 카테고리의 경량 썸네일+메타 레코드만 조회
   const rawItems = await getMediaMetaByCategory(catId);
@@ -1202,8 +1181,6 @@ async function openCategory(catId) {
   currentGalleryItems = items;
   categoryCounts[catId] = items.length;
   renderTopCategoryBar();
-
-  document.getElementById("current-category-count").innerText = `총 ${items.length}개의 미디어 파일`;
 
   const galleryGrid = document.getElementById("gallery-grid");
   const emptyState = document.getElementById("gallery-empty");
