@@ -109,7 +109,7 @@
   </div>
 
   <div class="w-full h-full flex items-center justify-center relative overflow-hidden" id="viewer-container">
-    <img id="viewer-image" src="" alt="Full view" class="w-full h-full media-fit-contain hidden">
+    <img id="viewer-image" src="" alt="Full view" draggable="false" class="w-full h-full media-fit-contain hidden">
     <video id="viewer-video" controls class="w-full h-full media-fit-contain hidden" playsinline></video>
   </div>
 
@@ -1274,8 +1274,11 @@ function goHome() {
 }
 
 // ============================================================================
-// [전체화면 미디어 뷰어: 단건 원본 지연 로드 + 핀치/더블탭/드래그 닫기]
+// [전체화면 미디어 뷰어: 터치/커서 기준 확대 + 정밀 이동 경계 + 마우스 휠/드래그]
 // ============================================================================
+const MAX_ZOOM_SCALE = 4;
+const DOUBLE_TAP_ZOOM_SCALE = 2.5;
+
 let zoomScale = 1;
 let panX = 0;
 let panY = 0;
@@ -1283,7 +1286,9 @@ let startPanX = 0;
 let startPanY = 0;
 let initialPinchDistance = null;
 let initialZoomScale = 1;
-let gestureMode = null;
+let pinchOriginX = 0;
+let pinchOriginY = 0;
+let gestureMode = null; // 'pinch' | 'pan' | 'decide' | 'drag-close' | 'swipe-horizontal'
 let touchStartX = 0;
 let touchStartY = 0;
 let touchCurrentX = 0;
@@ -1291,11 +1296,73 @@ let touchCurrentY = 0;
 let lastTapTime = 0;
 let lastTapX = 0;
 let lastTapY = 0;
+let lastTouchEndTime = 0;
+let isMousePanning = false;
 
 function getActiveMediaElement() {
   const imgEl = document.getElementById("viewer-image");
   const videoEl = document.getElementById("viewer-video");
   return !imgEl.classList.contains("hidden") ? imgEl : videoEl;
+}
+
+function isPointOnVideoControls(clientY) {
+  const videoEl = document.getElementById("viewer-video");
+  if (!videoEl || videoEl.classList.contains("hidden")) return false;
+  const rect = videoEl.getBoundingClientRect();
+  return clientY > rect.bottom - 80;
+}
+
+function getViewerContainerCenter() {
+  const container = document.getElementById("viewer-container");
+  if (!container) return null;
+  const rect = container.getBoundingClientRect();
+  return {
+    rect,
+    cx: rect.left + rect.width / 2,
+    cy: rect.top + rect.height / 2
+  };
+}
+
+// 실제 화면에 렌더링된 미디어 크기 산출 (media-fit-contain 여백 제외)
+function getDisplayedMediaSize() {
+  const container = document.getElementById("viewer-container");
+  const activeEl = getActiveMediaElement();
+  if (!container) return { width: 0, height: 0, containerW: 0, containerH: 0 };
+
+  const containerW = container.clientWidth;
+  const containerH = container.clientHeight;
+  if (!activeEl || !containerW || !containerH) {
+    return { width: containerW, height: containerH, containerW, containerH };
+  }
+
+  // media-fit-cover는 컨테이너 크기에 맞춰 클리핑된 박스가 확대됨
+  if (!isFitContain) {
+    return { width: containerW, height: containerH, containerW, containerH };
+  }
+
+  const natW = activeEl.tagName === "VIDEO" ? activeEl.videoWidth : activeEl.naturalWidth;
+  const natH = activeEl.tagName === "VIDEO" ? activeEl.videoHeight : activeEl.naturalHeight;
+  if (!natW || !natH) {
+    return { width: containerW, height: containerH, containerW, containerH };
+  }
+
+  const containerRatio = containerW / containerH;
+  const mediaRatio = natW / natH;
+
+  if (mediaRatio > containerRatio) {
+    return {
+      width: containerW,
+      height: containerW / mediaRatio,
+      containerW,
+      containerH
+    };
+  }
+  return {
+    width: containerH * mediaRatio,
+    height: containerH,
+    containerW,
+    containerH
+  };
 }
 
 function setViewerOverlayOpacity(opacity) {
@@ -1308,14 +1375,25 @@ function setViewerOverlayOpacity(opacity) {
 
 function updateZoomUI() {
   const resetBtn = document.getElementById("zoom-reset-btn");
-  if (!resetBtn) return;
-  if (zoomScale > 1.02) {
-    resetBtn.classList.remove("hidden");
-    resetBtn.classList.add("flex");
-    resetBtn.innerText = Math.round(zoomScale * 100) + "%";
-  } else {
-    resetBtn.classList.add("hidden");
-    resetBtn.classList.remove("flex");
+  const container = document.getElementById("viewer-container");
+
+  if (resetBtn) {
+    if (zoomScale > 1.02) {
+      resetBtn.classList.remove("hidden");
+      resetBtn.classList.add("flex");
+      resetBtn.innerText = Math.round(zoomScale * 100) + "%";
+    } else {
+      resetBtn.classList.add("hidden");
+      resetBtn.classList.remove("flex");
+    }
+  }
+
+  if (container) {
+    if (zoomScale > 1.02) {
+      container.style.cursor = isMousePanning ? "grabbing" : "grab";
+    } else {
+      container.style.cursor = "";
+    }
   }
 }
 
@@ -1327,12 +1405,52 @@ function applyMediaTransform(withTransition = false) {
   updateZoomUI();
 }
 
+function clampPanBounds() {
+  if (zoomScale <= 1) {
+    panX = 0;
+    panY = 0;
+    return;
+  }
+  const { width, height, containerW, containerH } = getDisplayedMediaSize();
+  const maxPanX = Math.max(0, (width * zoomScale - containerW) / 2);
+  const maxPanY = Math.max(0, (height * zoomScale - containerH) / 2);
+  panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+  panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+}
+
+// 특정 화면 좌표(clientX, clientY)를 고정 기준으로 확대/축소
+function zoomAtPoint(targetScale, clientX, clientY, withTransition = false) {
+  const centerInfo = getViewerContainerCenter();
+  if (!centerInfo) return;
+
+  const nextScale = Math.min(Math.max(1, targetScale), MAX_ZOOM_SCALE);
+  if (nextScale <= 1.01) {
+    resetMediaZoom(withTransition);
+    return;
+  }
+
+  const relX = clientX - centerInfo.cx;
+  const relY = clientY - centerInfo.cy;
+  const originX = (relX - panX) / zoomScale;
+  const originY = (relY - panY) / zoomScale;
+
+  zoomScale = nextScale;
+  panX = relX - originX * zoomScale;
+  panY = relY - originY * zoomScale;
+
+  clampPanBounds();
+  applyMediaTransform(withTransition);
+}
+
 function resetMediaZoom(withTransition = false) {
   zoomScale = 1;
   panX = 0;
   panY = 0;
   initialPinchDistance = null;
+  pinchOriginX = 0;
+  pinchOriginY = 0;
   gestureMode = null;
+  isMousePanning = false;
 
   const modal = document.getElementById("viewer-modal");
   const imgEl = document.getElementById("viewer-image");
@@ -1348,19 +1466,6 @@ function resetMediaZoom(withTransition = false) {
     }
   });
   updateZoomUI();
-}
-
-function clampPanBounds() {
-  const container = document.getElementById("viewer-container");
-  if (!container || zoomScale <= 1) {
-    panX = 0;
-    panY = 0;
-    return;
-  }
-  const maxPanX = (container.clientWidth * (zoomScale - 1)) / 2;
-  const maxPanY = (container.clientHeight * (zoomScale - 1)) / 2;
-  panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
-  panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
 }
 
 function getTouchDistance(t1, t2) {
@@ -1483,11 +1588,24 @@ function toggleMediaFit() {
 
 const viewerContainer = document.getElementById("viewer-container");
 
+// --- 터치 제스처 (핀치 줌 중점 기준 + 더블탭 터치 지점 기준 + 스와이프/드래그 닫기) ---
 viewerContainer.addEventListener("touchstart", (e) => {
   if (e.touches.length === 2) {
+    const centerInfo = getViewerContainerCenter();
+    if (!centerInfo) return;
+
+    const modal = document.getElementById("viewer-modal");
+    if (modal) modal.style.backgroundColor = "rgba(0, 0, 0, 1)";
+    setViewerOverlayOpacity(1);
+
     gestureMode = "pinch";
     initialPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
     initialZoomScale = zoomScale;
+
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - centerInfo.cx;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - centerInfo.cy;
+    pinchOriginX = (midX - panX) / zoomScale;
+    pinchOriginY = (midY - panY) / zoomScale;
     return;
   }
 
@@ -1495,23 +1613,21 @@ viewerContainer.addEventListener("touchstart", (e) => {
     const touch = e.touches[0];
     const now = Date.now();
 
-    const videoEl = document.getElementById("viewer-video");
-    if (!videoEl.classList.contains("hidden") && touch.clientY > window.innerHeight - 80) {
+    if (isPointOnVideoControls(touch.clientY)) {
       gestureMode = null;
       return;
     }
 
+    // 더블탭: 터치한 지점을 기준으로 확대 / 100% 초기화
     if (now - lastTapTime < 300 && Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY) < 35) {
       e.preventDefault();
       if (zoomScale > 1.05) {
         resetMediaZoom(true);
       } else {
-        zoomScale = 2.5;
-        panX = 0;
-        panY = 0;
-        applyMediaTransform(true);
+        zoomAtPoint(DOUBLE_TAP_ZOOM_SCALE, touch.clientX, touch.clientY, true);
       }
       lastTapTime = 0;
+      lastTouchEndTime = now;
       gestureMode = null;
       return;
     }
@@ -1541,9 +1657,16 @@ viewerContainer.addEventListener("touchmove", (e) => {
   if (gestureMode === "pinch" && e.touches.length === 2) {
     e.preventDefault();
     const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
-    if (initialPinchDistance && initialPinchDistance > 0) {
+    const centerInfo = getViewerContainerCenter();
+    if (centerInfo && initialPinchDistance && initialPinchDistance > 0) {
       const ratio = currentDist / initialPinchDistance;
-      zoomScale = Math.min(Math.max(1, initialZoomScale * ratio), 4);
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - centerInfo.cx;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - centerInfo.cy;
+
+      zoomScale = Math.min(Math.max(1, initialZoomScale * ratio), MAX_ZOOM_SCALE);
+      panX = midX - pinchOriginX * zoomScale;
+      panY = midY - pinchOriginY * zoomScale;
+
       clampPanBounds();
       applyMediaTransform(false);
     }
@@ -1603,6 +1726,8 @@ viewerContainer.addEventListener("touchmove", (e) => {
 }, { passive: false });
 
 viewerContainer.addEventListener("touchend", (e) => {
+  lastTouchEndTime = Date.now();
+
   if (gestureMode === "pinch") {
     if (zoomScale < 1.05) {
       resetMediaZoom(true);
@@ -1652,6 +1777,64 @@ viewerContainer.addEventListener("touchend", (e) => {
     gestureMode = null;
   }
 }, false);
+
+// --- PC/외부 모니터 마우스 제어 (커서 기준 휠 확대 + 드래그 이동 + 더블클릭 확대) ---
+viewerContainer.addEventListener("wheel", (e) => {
+  const modal = document.getElementById("viewer-modal");
+  if (!modal || modal.classList.contains("hidden")) return;
+  e.preventDefault();
+
+  const zoomFactor = Math.min(1.35, Math.max(0.74, Math.exp(-e.deltaY * 0.002)));
+  const targetScale = zoomScale * zoomFactor;
+  zoomAtPoint(targetScale, e.clientX, e.clientY, false);
+}, { passive: false });
+
+viewerContainer.addEventListener("mousedown", (e) => {
+  if (e.button !== 0 || zoomScale <= 1.02) return;
+  if (isPointOnVideoControls(e.clientY)) return;
+
+  e.preventDefault();
+  isMousePanning = true;
+  startPanX = e.clientX - panX;
+  startPanY = e.clientY - panY;
+  updateZoomUI();
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!isMousePanning) return;
+  panX = e.clientX - startPanX;
+  panY = e.clientY - startPanY;
+  clampPanBounds();
+  applyMediaTransform(false);
+});
+
+window.addEventListener("mouseup", () => {
+  if (!isMousePanning) return;
+  isMousePanning = false;
+  updateZoomUI();
+});
+
+viewerContainer.addEventListener("dblclick", (e) => {
+  // 터치 더블탭 직후 발생하는 합성 dblclick 중복 실행 방지
+  if (Date.now() - lastTouchEndTime < 500) return;
+  if (isPointOnVideoControls(e.clientY)) return;
+
+  if (zoomScale > 1.05) {
+    resetMediaZoom(true);
+  } else {
+    zoomAtPoint(DOUBLE_TAP_ZOOM_SCALE, e.clientX, e.clientY, true);
+  }
+});
+
+// 태블릿 화면 회전 또는 브라우저 창 크기 변경 시 확대 경계 자동 재계산
+window.addEventListener("resize", () => {
+  const modal = document.getElementById("viewer-modal");
+  if (!modal || modal.classList.contains("hidden")) return;
+  if (zoomScale > 1.01) {
+    clampPanBounds();
+    applyMediaTransform(false);
+  }
+});
 
 // ============================================================================
 // [관리자 모달 및 Blob/썸네일 업로드 처리]
