@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jtech-v8';
+const CACHE_NAME = 'jtech-v9';
 
 // 앱 구동에 필수적인 동일 출처 핵심 정적 자산
 const CORE_ASSETS = [
